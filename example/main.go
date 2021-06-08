@@ -7,17 +7,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
-	"io"
 	"log"
 	"math/big"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/mblarer/scion-ipn"
+	"github.com/scionproto/scion/go/lib/addr"
 )
 
-const addr = "localhost:1234"
-const clientMessage = "Hello, IPN server!"
-const serverMessage = "Hello, IPN client!"
+const address = "localhost:1234"
 
 func main() {
 	go func() {
@@ -38,7 +36,7 @@ func runServer() error {
 	if err != nil {
 		return err
 	}
-	listener, err := quic.ListenAddr(addr, tlsConfig, nil)
+	listener, err := quic.ListenAddr(address, tlsConfig, nil)
 	if err != nil {
 		return err
 	}
@@ -50,14 +48,7 @@ func runServer() error {
 	if err != nil {
 		return err
 	}
-	buf := make([]byte, len(clientMessage))
-	_, err = io.ReadFull(stream, buf)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Server: Got '%s'\n", buf)
-	fmt.Printf("Server: Sending '%s'\n", serverMessage)
-	_, err = stream.Write([]byte(serverMessage))
+	err = ipn.ServerNegotiatePath(stream)
 	if err != nil {
 		return err
 	}
@@ -69,7 +60,7 @@ func runClient() error {
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"scion-ipn-example"},
 	}
-	session, err := quic.DialAddr(addr, tlsConfig, nil)
+	session, err := quic.DialAddr(address, tlsConfig, nil)
 	if err != nil {
 		return err
 	}
@@ -77,18 +68,8 @@ func runClient() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Client: Sending '%s'\n", clientMessage)
-	_, err = stream.Write([]byte(clientMessage))
-	if err != nil {
-		return err
-	}
-	buf := make([]byte, len(serverMessage))
-	_, err = io.ReadFull(stream, buf)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Client: Got '%s'\n", buf)
-	return nil
+	_, err = ipn.ClientNegotiatePath(stream, addr.IA{})
+	return err
 }
 
 func generateTLSConfig() (*tls.Config, error) {
