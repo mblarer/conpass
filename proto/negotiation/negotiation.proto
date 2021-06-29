@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option go_package = "github.com/mblarer/scion-ipn/proto/negotiation";
+
+package proto.negotiation;
+
+service NegotiationService {
+  rpc NegotiateSegments (NegotiationRequest) returns (NegotiationReply) {}
+}
+
+message NegotiationRequest {
+  string name = 1;
+}
+
+message NegotiationReply {
+  string message = 1;
+}
