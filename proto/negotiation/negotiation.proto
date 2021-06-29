@@ -9,9 +9,58 @@ service NegotiationService {
 }
 
 message NegotiationRequest {
-  string name = 1;
+  repeated ClientSegmentSet segment_sets = 1;
 }
 
 message NegotiationReply {
-  string message = 1;
+  repeated ServerSegmentSet segment_sets = 1;
+  // TODO: add utility description
+}
+
+message ClientSegmentSet {
+  uint32 set_id = 1;
+  repeated uint32 compatible_next_sets = 2;
+  repeated ClientSegment segments = 3;
+}
+
+message ServerSegmentSet {
+  uint32 set_id = 1;
+  repeated uint32 compatible_next_sets = 2;
+  repeated ServerSegment segments = 3;
+}
+
+message ClientSegment {
+  uint32 segment_id = 1;
+  repeated Subsegment subsegments = 2;
+  // TODO: add metadata
+}
+
+message ServerSegment {
+  uint32 segment_id = 1;
+  repeated Subsegment subsegments = 2;
+  // TODO: add metadata
+  // TODO: add utility values
+}
+
+message Subsegment {
+  enum Type {
+    LINK = 0;
+    REFERENCE = 1;
+  }
+  Type type = 1;
+  // optional, depends on subsegment type
+  Link link = 2;
+  // optional, depends on subsegment type
+  uint32 reference = 3;
+}
+
+message Link {
+  Interface egress = 1;
+  Interface ingress = 2;
+  // TODO: add metadata
+}
+
+message Interface {
+  uint64 isd_as = 1;
+  uint64 id = 2;
 }
