@@ -73,14 +73,17 @@ func runServer() error {
 }
 
 func filterSegmentSets(css []*pb.ClientSegmentSet) []*pb.ServerSegmentSet {
+	memo := make(map[uint32]bool)
 	sss := make([]*pb.ServerSegmentSet, len(css))
 	for i := 0; i < len(css); i++ {
 		clientSegs := css[i].GetSegments()
-		serverSegs := make([]*pb.ServerSegment, len(clientSegs))
+		serverSegs := make([]*pb.ServerSegment, 0)
 		for j := 0; j < len(clientSegs); j++ {
-			serverSegs[j] = &pb.ServerSegment{
-				SegmentId:   clientSegs[j].GetSegmentId(),
-				Subsegments: clientSegs[j].GetSubsegments(),
+			if acceptSegment(memo, clientSegs[j]) {
+				serverSegs = append(serverSegs, &pb.ServerSegment{
+					SegmentId:   clientSegs[j].GetSegmentId(),
+					Subsegments: clientSegs[j].GetSubsegments(),
+				})
 			}
 		}
 		sss[i] = &pb.ServerSegmentSet{
@@ -90,6 +93,40 @@ func filterSegmentSets(css []*pb.ClientSegmentSet) []*pb.ServerSegmentSet {
 		}
 	}
 	return sss
+}
+
+// Filter segments based on local attributes
+func acceptSegment(memo map[uint32]bool, segment *pb.ClientSegment) bool {
+	for _, subseg := range segment.GetSubsegments() {
+		if !acceptSubsegment(memo, subseg) {
+			return false
+		}
+	}
+	memo[segment.GetSegmentId()] = true
+	return true
+}
+
+func acceptSubsegment(memo map[uint32]bool, subseg *pb.Subsegment) bool {
+	switch subseg.GetType() {
+	case pb.Subsegment_REFERENCE:
+		v, ok := memo[subseg.GetReference()]
+		return v && ok
+	case pb.Subsegment_LINK:
+		link := subseg.GetLink()
+		return acceptInterface(link.GetEgress()) && acceptInterface(link.GetIngress())
+	}
+	return false
+}
+
+func acceptInterface(iface *pb.Interface) bool {
+	blacklistIsdAs := []uint64{3, 4}
+	ifaceIsdAs := iface.GetIsdAs()
+	for _, entry := range blacklistIsdAs {
+		if ifaceIsdAs == entry {
+			return false
+		}
+	}
+	return true
 }
 
 func generateSegmentSets() []*pb.ClientSegmentSet {
