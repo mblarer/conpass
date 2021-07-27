@@ -9,6 +9,7 @@ import (
 	"time"
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
+	"github.com/scionproto/scion/go/lib/addr"
 	grpc "google.golang.org/grpc"
 )
 
@@ -37,9 +38,11 @@ func runClient() error {
 	c := pb.NewNegotiationServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	request := &pb.Message{
-		Segments: generateSegments(),
+	segs, err := (&segmentGenerator{}).Query(addr.IA{})
+	if err != nil {
+		return err
 	}
+	request := &pb.Message{Segments: segs}
 	response, err := c.Negotiate(ctx, request)
 	if err != nil {
 		return errors.New(fmt.Sprintf("could not greet: %v", err))
@@ -135,7 +138,13 @@ func acceptInterface(iface *pb.Interface) bool {
 	return true
 }
 
-func generateSegments() []*pb.Segment {
+type SegmentQuerier interface {
+	Query(addr.IA) ([]*pb.Segment, error)
+}
+
+type segmentGenerator struct{}
+
+func (_ *segmentGenerator) Query(_ addr.IA) ([]*pb.Segment, error) {
 	return []*pb.Segment{
 		// UP: 1#2 --> 2#1,2 --> 3#1
 		&pb.Segment{
@@ -199,5 +208,5 @@ func generateSegments() []*pb.Segment {
 			Valid:       true,
 			Composition: []uint32{6, 7},
 		},
-	}
+	}, nil
 }
