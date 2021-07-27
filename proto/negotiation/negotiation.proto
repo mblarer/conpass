@@ -5,59 +5,25 @@ option go_package = "github.com/mblarer/scion-ipn/proto/negotiation";
 package proto.negotiation;
 
 service NegotiationService {
-  rpc NegotiateSegments (NegotiationRequest) returns (NegotiationReply) {}
+  rpc Negotiate (Message) returns (Message) {}
 }
 
-message NegotiationRequest {
-  repeated ClientSegmentSet segment_sets = 1;
+message Message {
+  repeated Option options = 1;
+  repeated Segment segments = 2;
 }
 
-message NegotiationReply {
-  repeated ServerSegmentSet segment_sets = 1;
-  // TODO: add utility description
+message Option {
+  uint32 type = 1;
+  bytes data = 2;
 }
 
-message ClientSegmentSet {
-  uint32 set_id = 1;
-  repeated uint32 compatible_next_sets = 2;
-  repeated ClientSegment segments = 3;
-}
-
-message ServerSegmentSet {
-  uint32 set_id = 1;
-  repeated uint32 compatible_next_sets = 2;
-  repeated ServerSegment segments = 3;
-}
-
-message ClientSegment {
-  uint32 segment_id = 1;
-  repeated Subsegment subsegments = 2;
-  // TODO: add metadata
-}
-
-message ServerSegment {
-  uint32 segment_id = 1;
-  repeated Subsegment subsegments = 2;
-  // TODO: add metadata
-  // TODO: add utility values
-}
-
-message Subsegment {
-  enum Type {
-    LINK = 0;
-    REFERENCE = 1;
-  }
-  Type type = 1;
-  // optional, depends on subsegment type
-  Link link = 2;
-  // optional, depends on subsegment type
-  uint32 reference = 3;
-}
-
-message Link {
-  Interface egress = 1;
-  Interface ingress = 2;
-  // TODO: add metadata
+message Segment {
+  uint32 id = 1;
+  bool valid = 2;
+  repeated Interface literal = 3;
+  repeated uint32 composition = 4;
+  repeated Option options = 5;
 }
 
 message Interface {
