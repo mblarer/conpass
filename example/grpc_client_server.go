@@ -79,7 +79,7 @@ func runServer() error {
 func filterSegments(clientSegs []*pb.Segment) []*pb.Segment {
 	memo := make(map[uint32]bool)
 	n := uint32(len(clientSegs))
-	serverSegs := make([]*pb.Segment, n)
+	serverSegs := make([]*pb.Segment, 0, n)
 	for i := uint32(0); i < n; i++ {
 		if acceptSegment(memo, clientSegs[i]) {
 			serverSegs = append(serverSegs, &pb.Segment{
