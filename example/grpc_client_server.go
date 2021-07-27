@@ -9,11 +9,14 @@ import (
 	"time"
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
+	"github.com/netsec-ethz/scion-apps/pkg/appnet"
 	"github.com/scionproto/scion/go/lib/addr"
+	"github.com/scionproto/scion/go/lib/snet"
 	grpc "google.golang.org/grpc"
 )
 
 const address = "localhost:1234"
+const destinationIA = "19-ffaa:0:1303"
 
 func main() {
 	go func() {
@@ -38,7 +41,12 @@ func runClient() error {
 	c := pb.NewNegotiationServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	segs, err := (&segmentGenerator{}).Query(addr.IA{})
+	//segs, err := (&segmentGenerator{}).Query(addr.IA{})
+	ia, err := addr.IAFromString(destinationIA)
+	if err != nil {
+		return err
+	}
+	segs, err := (&sciondQuerier{}).Query(ia)
 	if err != nil {
 		return err
 	}
@@ -209,4 +217,37 @@ func (_ *segmentGenerator) Query(_ addr.IA) ([]*pb.Segment, error) {
 			Composition: []uint32{6, 7},
 		},
 	}, nil
+}
+
+type sciondQuerier struct{}
+
+func (_ *sciondQuerier) Query(ia addr.IA) ([]*pb.Segment, error) {
+	paths, err := appnet.QueryPaths(ia)
+	if err != nil {
+		return nil, err
+	}
+	return pathsToPB(paths), nil
+}
+
+func pathsToPB(paths []snet.Path) []*pb.Segment {
+	segments := make([]*pb.Segment, len(paths))
+	for i, path := range paths {
+		segments[i] = &pb.Segment{
+			Id:      uint32(i),
+			Valid:   true,
+			Literal: interfacesToPB(path.Metadata().Interfaces),
+		}
+	}
+	return segments
+}
+
+func interfacesToPB(ifaces []snet.PathInterface) []*pb.Interface {
+	pbIfaces := make([]*pb.Interface, len(ifaces))
+	for i, iface := range ifaces {
+		pbIfaces[i] = &pb.Interface{
+			Id:    uint64(iface.ID),
+			IsdAs: uint64(iface.IA.IAInt()),
+		}
+	}
+	return pbIfaces
 }
