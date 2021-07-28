@@ -8,11 +8,11 @@ import (
 	"net"
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
+	"github.com/scionproto/scion/go/lib/addr"
 	grpc "google.golang.org/grpc"
 )
 
-const address = "localhost:1234"
-const destinationIA = "19-ffaa:0:1303"
+const address = "192.168.1.2:1234"
 
 func main() {
 	err := runServer()
@@ -26,10 +26,35 @@ type server struct {
 }
 
 func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, error) {
-	log.Printf("request: %v, %v", in.GetOptions(), in.GetSegments())
+	log.Println("request:")
+	printSeg(in.GetSegments())
 	return &pb.Message{
 		Segments: filterSegments(in.GetSegments()),
 	}, nil
+}
+
+func printSeg(segs []*pb.Segment) {
+	for _, seg := range segs {
+		if len(seg.GetLiteral()) > 0 {
+			fmt.Printf("  [%d]: ", seg.GetId())
+			printLit(seg.GetLiteral())
+			fmt.Printf("\n")
+		} else {
+			fmt.Printf("  [%d]: %v\n", seg.GetId(), seg.GetComposition())
+		}
+	}
+}
+
+func printLit(lit []*pb.Interface) {
+	for i, iface := range lit {
+		if i == len(lit) - 1 {
+			fmt.Printf(">%d %s", iface.GetId(), addr.IAInt(iface.GetIsdAs()).IA())
+		} else if i % 2 == 0 {
+			fmt.Printf("%s %d", addr.IAInt(iface.GetIsdAs()).IA(), iface.GetId())
+		} else if i % 2 == 1 {
+			fmt.Printf(">%d ", iface.GetId())
+		}
+	}
 }
 
 func runServer() error {

@@ -14,8 +14,8 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-const address = "localhost:1234"
-const destinationIA = "19-ffaa:0:1303"
+const address = "192.168.1.2:1234"
+const destinationIA = "20-ffaa:0:1401"
 
 func main() {
 	err := runClient()
