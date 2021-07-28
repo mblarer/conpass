@@ -47,11 +47,11 @@ func printSeg(segs []*pb.Segment) {
 
 func printLit(lit []*pb.Interface) {
 	for i, iface := range lit {
-		if i == len(lit) - 1 {
+		if i == len(lit)-1 {
 			fmt.Printf(">%d %s", iface.GetId(), addr.IAInt(iface.GetIsdAs()).IA())
-		} else if i % 2 == 0 {
+		} else if i%2 == 0 {
 			fmt.Printf("%s %d", addr.IAInt(iface.GetIsdAs()).IA(), iface.GetId())
-		} else if i % 2 == 1 {
+		} else if i%2 == 1 {
 			fmt.Printf(">%d ", iface.GetId())
 		}
 	}

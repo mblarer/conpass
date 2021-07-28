@@ -47,8 +47,33 @@ func runClient() error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("could not greet: %v", err))
 	}
-	log.Printf("reply: %v, %v", response.GetOptions(), response.GetSegments())
+	log.Println("reply:")
+	printSeg(response.GetSegments())
 	return nil
+}
+
+func printSeg(segs []*pb.Segment) {
+	for _, seg := range segs {
+		if len(seg.GetLiteral()) > 0 {
+			fmt.Printf("  [%d]: ", seg.GetId())
+			printLit(seg.GetLiteral())
+			fmt.Printf("\n")
+		} else {
+			fmt.Printf("  [%d]: %v\n", seg.GetId(), seg.GetComposition())
+		}
+	}
+}
+
+func printLit(lit []*pb.Interface) {
+	for i, iface := range lit {
+		if i == len(lit)-1 {
+			fmt.Printf(">%d %s", iface.GetId(), addr.IAInt(iface.GetIsdAs()).IA())
+		} else if i%2 == 0 {
+			fmt.Printf("%s %d", addr.IAInt(iface.GetIsdAs()).IA(), iface.GetId())
+		} else if i%2 == 1 {
+			fmt.Printf(">%d ", iface.GetId())
+		}
+	}
 }
 
 func filterSegments(clientSegs []*pb.Segment) []*pb.Segment {
