@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"time"
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
@@ -19,13 +18,6 @@ const address = "localhost:1234"
 const destinationIA = "19-ffaa:0:1303"
 
 func main() {
-	go func() {
-		err := runServer()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
-
 	err := runClient()
 	if err != nil {
 		log.Fatal(err)
@@ -56,31 +48,6 @@ func runClient() error {
 		return errors.New(fmt.Sprintf("could not greet: %v", err))
 	}
 	log.Printf("reply: %v, %v", response.GetOptions(), response.GetSegments())
-	return nil
-}
-
-type server struct {
-	pb.UnimplementedNegotiationServiceServer
-}
-
-func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, error) {
-	log.Printf("request: %v, %v", in.GetOptions(), in.GetSegments())
-	return &pb.Message{
-		Segments: filterSegments(in.GetSegments()),
-	}, nil
-}
-
-func runServer() error {
-	lis, err := net.Listen("tcp", address)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed to listen: %v", err))
-	}
-	s := grpc.NewServer()
-	pb.RegisterNegotiationServiceServer(s, &server{})
-	log.Printf("server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		return errors.New(fmt.Sprintf("failed to serve: %v", err))
-	}
 	return nil
 }
 
