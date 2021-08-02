@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,6 +14,7 @@ import (
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
 	grpc "google.golang.org/grpc"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const address = "192.168.1.2:1234"
@@ -26,7 +26,11 @@ func main() {
 	}
 }
 
+var aclFilepath string
+
 func runServer() error {
+	flag.StringVar(&aclFilepath, "acl", "", "path to ACL definition file (YAML)")
+	flag.Parse()
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed to listen: %v", err))
@@ -91,13 +95,11 @@ func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
 
 func createACL() (*pol.ACL, error) {
 	acl := new(pol.ACL)
-	filepath := flag.String("acl", "", "path to ACL definition file (JSON)")
-	flag.Parse()
-	jsonACL, err := os.ReadFile(*filepath)
+	yamlACL, err := os.ReadFile(aclFilepath)
 	if err != nil {
-		jsonACL = []byte(`["+"]`)
+		yamlACL = []byte(`["+"]`)
 	}
-	err = json.Unmarshal(jsonACL, &acl)
+	err = yaml.Unmarshal(yamlACL, &acl)
 	if err != nil {
 		return nil, err
 	}
