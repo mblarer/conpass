@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	ipn "github.com/mblarer/scion-ipn"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
-	"github.com/scionproto/scion/go/lib/addr"
+	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
 	grpc "google.golang.org/grpc"
 )
@@ -90,9 +91,13 @@ func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
 
 func createACL() (*pol.ACL, error) {
 	acl := new(pol.ACL)
-	jsonACL := flag.String("acl-json", `["+"]`, `ACL in JSON format (default is ["+"])`)
+	filepath := flag.String("acl", "", "path to ACL definition file (JSON)")
 	flag.Parse()
-	err := json.Unmarshal([]byte(*jsonACL), &acl)
+	jsonACL, err := os.ReadFile(*filepath)
+	if err != nil {
+		jsonACL = []byte(`["+"]`)
+	}
+	err = json.Unmarshal(jsonACL, &acl)
 	if err != nil {
 		return nil, err
 	}
