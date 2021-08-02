@@ -17,7 +17,7 @@ import (
 const address = "192.168.1.2:1234"
 
 func main() {
-	err = runServer()
+	err := runServer()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
 	return ipn.PredicateFilter{ipn.ACLPredicate{acl}}.Filter(clientSegs), nil
 }
 
-func createACL() (*pathpol.ACL, error) {
+func createACL() (*pol.ACL, error) {
 	var err error
 	entry1, entry2 := new(pol.ACLEntry), new(pol.ACLEntry)
 	err = entry1.LoadFromString("- 18-ffaa:0:1201")
