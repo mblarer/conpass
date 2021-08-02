@@ -2,20 +2,27 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
+	ipn "github.com/mblarer/scion-ipn"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
 	addr "github.com/scionproto/scion/go/lib/addr"
+	pol "github.com/scionproto/scion/go/lib/pathpol"
 	snet "github.com/scionproto/scion/go/lib/snet"
 	grpc "google.golang.org/grpc"
 )
 
 const address = "192.168.1.2:1234"
 const destinationIA = "20-ffaa:0:1401"
+
+var aclFilepath string
 
 func main() {
 	err := runClient()
@@ -25,6 +32,8 @@ func main() {
 }
 
 func runClient() error {
+	flag.StringVar(&aclFilepath, "acl", "", "path to ACL definition file (JSON)")
+	flag.Parse()
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return errors.New(fmt.Sprintf("did not connect: %v", err))
@@ -42,7 +51,13 @@ func runClient() error {
 	if err != nil {
 		return err
 	}
-	request := &pb.Message{Segments: segs}
+	segments := ipn.SegmentsFromPB(segs)
+	filtered, err := filterSegments(segments)
+	if err != nil {
+		return err
+	}
+	filteredPB := ipn.SegmentsToPB(filtered)
+	request := &pb.Message{Segments: filteredPB}
 	response, err := c.Negotiate(ctx, request)
 	if err != nil {
 		return errors.New(fmt.Sprintf("could not greet: %v", err))
@@ -76,66 +91,25 @@ func printLit(lit []*pb.Interface) {
 	}
 }
 
-func filterSegments(clientSegs []*pb.Segment) []*pb.Segment {
-	memo := make(map[uint32]bool)
-	n := uint32(len(clientSegs))
-	serverSegs := make([]*pb.Segment, 0, n)
-	for i := uint32(0); i < n; i++ {
-		if acceptSegment(memo, clientSegs[i]) {
-			serverSegs = append(serverSegs, &pb.Segment{
-				Id:          n + clientSegs[i].GetId(),
-				Valid:       clientSegs[i].GetValid(),
-				Composition: []uint32{clientSegs[i].GetId()},
-			})
-		}
+func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
+	acl, err := createACL()
+	if err != nil {
+		return nil, err
 	}
-	return serverSegs
+	return ipn.PredicateFilter{ipn.ACLPredicate{acl}}.Filter(clientSegs), nil
 }
 
-// Filter segments based on local attributes
-func acceptSegment(memo map[uint32]bool, segment *pb.Segment) bool {
-	segId := segment.GetId()
-	if accept, ok := memo[segId]; ok {
-		return accept
+func createACL() (*pol.ACL, error) {
+	acl := new(pol.ACL)
+	jsonACL, err := os.ReadFile(aclFilepath)
+	if err != nil {
+		jsonACL = []byte(`["+"]`)
 	}
-
-	interfaces := segment.GetLiteral()
-	ids := segment.GetComposition()
-	if len(interfaces) > 0 {
-		memo[segId] = acceptLiteral(interfaces)
-	} else {
-		memo[segId] = acceptComposition(memo, ids)
+	err = json.Unmarshal(jsonACL, &acl)
+	if err != nil {
+		return nil, err
 	}
-	return memo[segId]
-}
-
-func acceptLiteral(interfaces []*pb.Interface) bool {
-	for _, iface := range interfaces {
-		if !acceptInterface(iface) {
-			return false
-		}
-	}
-	return true
-}
-
-func acceptComposition(memo map[uint32]bool, ids []uint32) bool {
-	for _, id := range ids {
-		if !memo[id] {
-			return false
-		}
-	}
-	return true
-}
-
-func acceptInterface(iface *pb.Interface) bool {
-	blacklistIsdAs := []uint64{3, 4}
-	ifaceIsdAs := iface.GetIsdAs()
-	for _, entry := range blacklistIsdAs {
-		if ifaceIsdAs == entry {
-			return false
-		}
-	}
-	return true
+	return acl, nil
 }
 
 type SegmentQuerier interface {

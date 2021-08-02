@@ -19,14 +19,14 @@ import (
 
 const address = "192.168.1.2:1234"
 
+var aclFilepath string
+
 func main() {
 	err := runServer()
 	if err != nil {
 		log.Fatal(err)
 	}
 }
-
-var aclFilepath string
 
 func runServer() error {
 	flag.StringVar(&aclFilepath, "acl", "", "path to ACL definition file (JSON)")
