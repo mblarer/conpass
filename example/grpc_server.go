@@ -88,7 +88,7 @@ func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
 }
 
 func createACL() (*pol.ACL, error) {
-	var acl *pol.ACL
+	acl = new(pol.ACL)
 	jsonACL := []byte("[\"- 18-ffaa:0:1201\",\"+\"]")
 	err := json.Unmarshal(jsonACL, acl)
 	if err != nil {
