@@ -16,36 +16,11 @@ import (
 
 const address = "192.168.1.2:1234"
 
-var policy *pol.ACL
-
 func main() {
-	err := initializePolicy()
-	if err != nil {
-		log.Fatal(err)
-	}
 	err = runServer()
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func initializePolicy() error {
-	var err error
-	entry1, entry2 := new(pol.ACLEntry), new(pol.ACLEntry)
-	err = entry1.LoadFromString("- 18-ffaa:0:1201")
-	if err != nil {
-		return err
-	}
-	err = entry2.LoadFromString("+")
-	if err != nil {
-		return err
-	}
-	acl, err := pol.NewACL(entry1, entry2)
-	if err != nil {
-		return nil
-	}
-	policy = acl
-	return nil
 }
 
 func runServer() error {
@@ -71,7 +46,10 @@ func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, e
 	pbsegs := in.GetSegments()
 	printSeg(pbsegs)
 	segments := ipn.SegmentsFromPB(pbsegs)
-	filtered := filterSegments(segments)
+	filtered, err := filterSegments(segments)
+	if err != nil {
+		return nil, err
+	}
 	filteredPB := ipn.SegmentsToPB(filtered)
 	return &pb.Message{Segments: filteredPB}, nil
 }
@@ -100,52 +78,28 @@ func printLit(lit []*pb.Interface) {
 	}
 }
 
-func filterSegments(clientSegs []ipn.Segment) []ipn.Segment {
-	return ipn.PredicateFilter{ipn.ACLPredicate{policy}}.Filter(clientSegs)
+func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
+	acl, err := createACL()
+	if err != nil {
+		return nil, err
+	}
+	return ipn.PredicateFilter{ipn.ACLPredicate{acl}}.Filter(clientSegs), nil
 }
 
-// Filter segments based on local attributes
-func acceptSegment(memo map[uint32]bool, segment *pb.Segment) bool {
-	segId := segment.GetId()
-	if accept, ok := memo[segId]; ok {
-		return accept
+func createACL() (*pathpol.ACL, error) {
+	var err error
+	entry1, entry2 := new(pol.ACLEntry), new(pol.ACLEntry)
+	err = entry1.LoadFromString("- 18-ffaa:0:1201")
+	if err != nil {
+		return nil, err
 	}
-
-	interfaces := segment.GetLiteral()
-	ids := segment.GetComposition()
-	if len(interfaces) > 0 {
-		memo[segId] = acceptLiteral(interfaces)
-	} else {
-		memo[segId] = acceptComposition(memo, ids)
+	err = entry2.LoadFromString("+")
+	if err != nil {
+		return nil, err
 	}
-	return memo[segId]
-}
-
-func acceptLiteral(interfaces []*pb.Interface) bool {
-	for _, iface := range interfaces {
-		if !acceptInterface(iface) {
-			return false
-		}
+	acl, err := pol.NewACL(entry1, entry2)
+	if err != nil {
+		return nil, err
 	}
-	return true
-}
-
-func acceptComposition(memo map[uint32]bool, ids []uint32) bool {
-	for _, id := range ids {
-		if !memo[id] {
-			return false
-		}
-	}
-	return true
-}
-
-func acceptInterface(iface *pb.Interface) bool {
-	blacklistIsdAs := []uint64{3, 4}
-	ifaceIsdAs := iface.GetIsdAs()
-	for _, entry := range blacklistIsdAs {
-		if ifaceIsdAs == entry {
-			return false
-		}
-	}
-	return true
+	return acl, nil
 }
