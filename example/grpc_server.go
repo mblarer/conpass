@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -89,8 +90,9 @@ func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
 
 func createACL() (*pol.ACL, error) {
 	acl := new(pol.ACL)
-	jsonACL := []byte("[\"- 18-ffaa:0:1201\",\"+\"]")
-	err := json.Unmarshal(jsonACL, acl)
+	jsonACL := flag.String("acl-json", `["+"]`, `ACL in JSON format (default is ["+"])`)
+	flag.Parse()
+	err := json.Unmarshal([]byte(*jsonACL), &acl)
 	if err != nil {
 		return nil, err
 	}
