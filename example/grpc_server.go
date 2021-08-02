@@ -7,18 +7,59 @@ import (
 	"log"
 	"net"
 
+	ipn "github.com/mblarer/scion-ipn"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	"github.com/scionproto/scion/go/lib/addr"
+	pol "github.com/scionproto/scion/go/lib/pathpol"
 	grpc "google.golang.org/grpc"
 )
 
 const address = "192.168.1.2:1234"
 
+var policy *pol.ACL
+
 func main() {
-	err := runServer()
+	err := initializePolicy()
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = runServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func initializePolicy() error {
+	var err error
+	entry1, entry2 := new(pol.ACLEntry), new(pol.ACLEntry)
+	err = entry1.LoadFromString("- 18-ffaa:0:1201")
+	if err != nil {
+		return err
+	}
+	err = entry2.LoadFromString("+")
+	if err != nil {
+		return err
+	}
+	acl, err := pol.NewACL(entry1, entry2)
+	if err != nil {
+		return nil
+	}
+	policy = acl
+	return nil
+}
+
+func runServer() error {
+	lis, err := net.Listen("tcp", address)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to listen: %v", err))
+	}
+	s := grpc.NewServer()
+	pb.RegisterNegotiationServiceServer(s, &server{})
+	log.Printf("server listening at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		return errors.New(fmt.Sprintf("failed to serve: %v", err))
+	}
+	return nil
 }
 
 type server struct {
@@ -27,10 +68,12 @@ type server struct {
 
 func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Println("request:")
-	printSeg(in.GetSegments())
-	return &pb.Message{
-		Segments: filterSegments(in.GetSegments()),
-	}, nil
+	pbsegs := in.GetSegments()
+	printSeg(pbsegs)
+	segments := ipn.SegmentsFromPB(pbsegs)
+	filtered := filterSegments(segments)
+	filteredPB := ipn.SegmentsToPB(filtered)
+	return &pb.Message{Segments: filteredPB}, nil
 }
 
 func printSeg(segs []*pb.Segment) {
@@ -57,34 +100,8 @@ func printLit(lit []*pb.Interface) {
 	}
 }
 
-func runServer() error {
-	lis, err := net.Listen("tcp", address)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed to listen: %v", err))
-	}
-	s := grpc.NewServer()
-	pb.RegisterNegotiationServiceServer(s, &server{})
-	log.Printf("server listening at %v", lis.Addr())
-	if err := s.Serve(lis); err != nil {
-		return errors.New(fmt.Sprintf("failed to serve: %v", err))
-	}
-	return nil
-}
-
-func filterSegments(clientSegs []*pb.Segment) []*pb.Segment {
-	memo := make(map[uint32]bool)
-	n := uint32(len(clientSegs))
-	serverSegs := make([]*pb.Segment, 0, n)
-	for i := uint32(0); i < n; i++ {
-		if acceptSegment(memo, clientSegs[i]) {
-			serverSegs = append(serverSegs, &pb.Segment{
-				Id:          n + clientSegs[i].GetId(),
-				Valid:       clientSegs[i].GetValid(),
-				Composition: []uint32{clientSegs[i].GetId()},
-			})
-		}
-	}
-	return serverSegs
+func filterSegments(clientSegs []ipn.Segment) []ipn.Segment {
+	return ipn.PredicateFilter{ipn.ACLPredicate{policy}}.Filter(clientSegs)
 }
 
 // Filter segments based on local attributes

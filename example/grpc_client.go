@@ -8,9 +8,9 @@ import (
 	"time"
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
-	"github.com/netsec-ethz/scion-apps/pkg/appnet"
-	"github.com/scionproto/scion/go/lib/addr"
-	"github.com/scionproto/scion/go/lib/snet"
+	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
+	addr "github.com/scionproto/scion/go/lib/addr"
+	snet "github.com/scionproto/scion/go/lib/snet"
 	grpc "google.golang.org/grpc"
 )
 
