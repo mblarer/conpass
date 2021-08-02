@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -87,17 +88,9 @@ func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
 }
 
 func createACL() (*pol.ACL, error) {
-	var err error
-	entry1, entry2 := new(pol.ACLEntry), new(pol.ACLEntry)
-	err = entry1.LoadFromString("- 18-ffaa:0:1201")
-	if err != nil {
-		return nil, err
-	}
-	err = entry2.LoadFromString("+")
-	if err != nil {
-		return nil, err
-	}
-	acl, err := pol.NewACL(entry1, entry2)
+	var acl *pol.ACL
+	jsonACL := []byte("[\"- 18-ffaa:0:1201\",\"+\"]")
+	err := json.Unmarshal(jsonACL, acl)
 	if err != nil {
 		return nil, err
 	}
