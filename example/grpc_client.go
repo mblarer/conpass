@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ipn "github.com/mblarer/scion-ipn"
+	segment "github.com/mblarer/scion-ipn/segment"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
 	addr "github.com/scionproto/scion/go/lib/addr"
@@ -47,6 +48,8 @@ func runClient() error {
 	if err != nil {
 		return err
 	}
+	_, _ = segment.QuerySegments(ia)
+	return nil
 	segs, err := (&sciondQuerier{}).Query(ia)
 	if err != nil {
 		return err
