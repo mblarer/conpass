@@ -54,8 +54,8 @@ func EncodeSegments(oldsegs []Segment, newsegs []Segment) []*proto.Segment {
 		switch segment := newseg.(type) {
 		case Literal:
 			rawsegs[i] = &proto.Segment{
-				Id: uint32(id),
-				Valid: valid,
+				Id:      uint32(id),
+				Valid:   valid,
 				Literal: EncodeInterfaces(segment.Interfaces),
 			}
 		case Composition:
@@ -64,8 +64,8 @@ func EncodeSegments(oldsegs []Segment, newsegs []Segment) []*proto.Segment {
 				rawids[j] = uint32(segindex[Fingerprint(*subseg)])
 			}
 			rawsegs[i] = &proto.Segment{
-				Id: uint32(id),
-				Valid: valid,
+				Id:          uint32(id),
+				Valid:       valid,
 				Composition: rawids,
 			}
 		default:

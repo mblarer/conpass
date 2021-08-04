@@ -56,5 +56,5 @@ func numInterfaces(seglen uint8) uint {
 	if seglen == 0 {
 		return 0
 	}
-	return uint(2 * seglen - 2)
+	return uint(2*seglen - 2)
 }

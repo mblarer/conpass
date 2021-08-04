@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	segment "github.com/mblarer/scion-ipn/segment"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
+	segment "github.com/mblarer/scion-ipn/segment"
 	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
@@ -19,10 +19,19 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-const address = "192.168.1.2:1234"
-const destinationIA = "20-ffaa:0:1401"
+const (
+	defaultAclFilepath     = ""
+	defaultTargetIA        = "17-ffaa:1:ef4"
+	defaultNegotiationHost = "192.168.1.2"
+	defaultNegotiationPort = "1234"
+)
 
-var aclFilepath string
+var (
+	aclFilepath     string
+	targetIA        string
+	negotiationHost string
+	negotiationPort string
+)
 
 func main() {
 	err := runClient()
@@ -32,8 +41,8 @@ func main() {
 }
 
 func runClient() error {
-	flag.StringVar(&aclFilepath, "acl", "", "path to ACL definition file (JSON)")
-	flag.Parse()
+	parseArgs()
+	address := fmt.Sprintf("%s:%s", negotiationHost, negotiationPort)
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return errors.New(fmt.Sprintf("did not connect: %v", err))
@@ -42,8 +51,7 @@ func runClient() error {
 	c := pb.NewNegotiationServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	//segs, err := (&segmentGenerator{}).Query(addr.IA{})
-	ia, err := addr.IAFromString(destinationIA)
+	ia, err := addr.IAFromString(targetIA)
 	if err != nil {
 		return err
 	}
@@ -64,6 +72,14 @@ func runClient() error {
 	log.Println("reply:")
 	printSeg(response.GetSegments())
 	return nil
+}
+
+func parseArgs() {
+	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath, "path to ACL definition file (JSON)")
+	flag.StringVar(&targetIA, "ia", defaultTargetIA, "ISD-AS of the target host")
+	flag.StringVar(&negotiationHost, "host", defaultNegotiationHost, "IP address of the negotiation server")
+	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number of the negotiation server")
+	flag.Parse()
 }
 
 func printSeg(segs []*pb.Segment) {

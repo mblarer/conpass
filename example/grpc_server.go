@@ -10,8 +10,8 @@ import (
 	"net"
 	"os"
 
-	segment "github.com/mblarer/scion-ipn/segment"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
+	segment "github.com/mblarer/scion-ipn/segment"
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
 	grpc "google.golang.org/grpc"
