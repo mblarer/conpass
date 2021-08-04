@@ -1,4 +1,4 @@
-package ipn
+package segment
 
 import (
 	"github.com/scionproto/scion/go/lib/addr"
@@ -48,8 +48,7 @@ func flattenSeglists(seglists [][]Segment) []Segment {
 		case 1:
 			segments = append(segments, seglist[0])
 		default:
-			// TODO: replace 0 id with real id or refactor code
-			segments = append(segments, NewSegmentComposition(0, true, seglist...))
+			segments = append(segments, FromSegments(seglist...))
 		}
 	}
 	return segments
