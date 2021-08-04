@@ -3,7 +3,6 @@ package ipn
 import (
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	addr "github.com/scionproto/scion/go/lib/addr"
-	common "github.com/scionproto/scion/go/lib/common"
 	snet "github.com/scionproto/scion/go/lib/snet"
 )
 
@@ -16,32 +15,6 @@ type Segment interface {
 	PB() *pb.Segment
 	SrcIA() addr.IA
 	DstIA() addr.IA
-}
-
-func SegmentsFromPB(pbsegs []*pb.Segment) []Segment {
-	// TODO: refactor, rename
-	segments := make([]Segment, len(pbsegs))
-	for i, pbseg := range pbsegs {
-		pbintfs := pbseg.GetLiteral()
-		if len(pbintfs) > 0 {
-			intfs := make([]snet.PathInterface, len(pbintfs))
-			for j, pbintf := range pbintfs {
-				intfs[j] = snet.PathInterface{
-					ID: common.IFIDType(pbintf.GetId()),
-					IA: addr.IAInt(pbintf.GetIsdAs()).IA(),
-				}
-			}
-			segments[i] = NewSegmentLiteral(SegmentID(pbseg.GetId()), pbseg.GetValid(), intfs...)
-		} else {
-			pbids := pbseg.GetComposition()
-			subsegs := make([]Segment, len(pbids))
-			for j, pbid := range pbids {
-				subsegs[j] = segments[pbid]
-			}
-			segments[i] = NewSegmentComposition(SegmentID(pbseg.GetId()), pbseg.GetValid(), subsegs...)
-		}
-	}
-	return segments
 }
 
 func SegmentsToPB(segs []Segment) []*pb.Segment {

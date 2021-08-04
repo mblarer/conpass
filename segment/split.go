@@ -1,7 +1,6 @@
 package segment
 
 import (
-	"fmt"
 	"github.com/scionproto/scion/go/lib/slayers/path/scion"
 	"github.com/scionproto/scion/go/lib/snet"
 )
@@ -33,15 +32,29 @@ func SplitPath(path snet.Path) ([]Segment, error) {
 	if err := decoded.DecodeFromBytes(path.Path().Raw); err != nil {
 		return nil, err
 	}
-	segments := make([]Segment, 0)
+	interfaces := path.Metadata().Interfaces
 	seglen := decoded.PathMeta.SegLen
-	fmt.Println("Segment lengths:", seglen)
-	fmt.Println("Number of interfaces:", len(path.Metadata().Interfaces))
+	segments := make([]Segment, 0)
+	for i := uint(0); i < 3; i++ {
+		if seglen[i] > 0 {
+			segments = append(segments, ithSegment(i, interfaces, seglen))
+		}
+	}
 	return segments, nil
 }
-/*
-func ithSegment(i uint, interfaces []snet.PathInterface, seglen [3]uint8) Segment {
-	
-}
-*/
 
+func ithSegment(i uint, interfaces []snet.PathInterface, seglen [3]uint8) Segment {
+	firstIf := uint(0)
+	for j := uint(0); j < i; j++ {
+		firstIf += numInterfaces(seglen[j])
+	}
+	lastIfExcl := firstIf + numInterfaces(seglen[i])
+	return FromInterfaces(interfaces[firstIf:lastIfExcl]...)
+}
+
+func numInterfaces(seglen uint8) uint {
+	if seglen == 0 {
+		return 0
+	}
+	return uint(2 * seglen - 2)
+}

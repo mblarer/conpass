@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	ipn "github.com/mblarer/scion-ipn"
 	segment "github.com/mblarer/scion-ipn/segment"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
@@ -48,22 +47,19 @@ func runClient() error {
 	if err != nil {
 		return err
 	}
-	_, _ = segment.QuerySegments(ia)
-	return nil
-	segs, err := (&sciondQuerier{}).Query(ia)
+	segments, err := segment.QuerySegments(ia)
 	if err != nil {
 		return err
 	}
-	segments := ipn.SegmentsFromPB(segs)
 	filtered, err := filterSegments(segments)
 	if err != nil {
 		return err
 	}
-	filteredPB := ipn.SegmentsToPB(filtered)
-	request := &pb.Message{Segments: filteredPB}
+	rawsegs := segment.EncodeSegments([]segment.Segment{}, filtered)
+	request := &pb.Message{Segments: rawsegs}
 	response, err := c.Negotiate(ctx, request)
 	if err != nil {
-		return errors.New(fmt.Sprintf("could not greet: %v", err))
+		return errors.New(fmt.Sprintf("could not negotiate: %v", err))
 	}
 	log.Println("reply:")
 	printSeg(response.GetSegments())
@@ -94,12 +90,14 @@ func printLit(lit []*pb.Interface) {
 	}
 }
 
-func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
+func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
 	acl, err := createACL()
 	if err != nil {
 		return nil, err
 	}
-	return ipn.PredicateFilter{ipn.ACLPredicate{acl}}.Filter(clientSegs), nil
+	filter := segment.PredicateFilter{segment.ACLPredicate{acl}}
+	filtered := filter.Filter(segments)
+	return filtered, nil
 }
 
 func createACL() (*pol.ACL, error) {

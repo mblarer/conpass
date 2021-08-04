@@ -10,7 +10,7 @@ import (
 	"net"
 	"os"
 
-	ipn "github.com/mblarer/scion-ipn"
+	segment "github.com/mblarer/scion-ipn/segment"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
@@ -50,15 +50,18 @@ type server struct {
 
 func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Println("request:")
-	pbsegs := in.GetSegments()
-	printSeg(pbsegs)
-	segments := ipn.SegmentsFromPB(pbsegs)
+	rawsegs := in.GetSegments()
+	printSeg(rawsegs)
+	segments, err := segment.DecodeSegments(rawsegs)
+	if err != nil {
+		return nil, err
+	}
 	filtered, err := filterSegments(segments)
 	if err != nil {
 		return nil, err
 	}
-	filteredPB := ipn.SegmentsToPB(filtered)
-	return &pb.Message{Segments: filteredPB}, nil
+	rawfiltered := segment.EncodeSegments(segments, filtered)
+	return &pb.Message{Segments: rawfiltered}, nil
 }
 
 func printSeg(segs []*pb.Segment) {
@@ -85,12 +88,12 @@ func printLit(lit []*pb.Interface) {
 	}
 }
 
-func filterSegments(clientSegs []ipn.Segment) ([]ipn.Segment, error) {
+func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
 	acl, err := createACL()
 	if err != nil {
 		return nil, err
 	}
-	return ipn.PredicateFilter{ipn.ACLPredicate{acl}}.Filter(clientSegs), nil
+	return segment.PredicateFilter{segment.ACLPredicate{acl}}.Filter(segments), nil
 }
 
 func createACL() (*pol.ACL, error) {
