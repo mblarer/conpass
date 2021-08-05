@@ -118,18 +118,15 @@ func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
 	if err != nil {
 		fmt.Println("could not create ACL policy:", err.Error())
 	}
-	/*
 	seq, err := createSequence()
 	if err != nil {
 		fmt.Println("could not create sequence policy:", err.Error())
 	}
-	*/
 	filters := make([]segment.Filter, 0)
 	if acl != nil {
 		aclFilter := filter.FromACL(*acl)
 		filters = append(filters, aclFilter)
 	}
-	/*
 	if seq != nil {
 		srcIA := (*appnet.DefNetwork()).IA
 		dstIA, _ := addr.IAFromString(targetIA)
@@ -137,7 +134,6 @@ func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
 		sequenceFilter := filter.FromSequence(*seq)
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
-	*/
 	filtered := filter.FromFilters(filters...).Filter(segments)
 	return filtered, nil
 }
