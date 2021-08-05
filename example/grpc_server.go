@@ -53,7 +53,7 @@ func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, e
 	log.Println("request:")
 	rawsegs := in.GetSegments()
 	printSeg(rawsegs)
-	segments, err := segment.DecodeSegments(rawsegs)
+	segments, err := segment.DecodeSegments([]segment.Segment{}, rawsegs)
 	if err != nil {
 		return nil, err
 	}
