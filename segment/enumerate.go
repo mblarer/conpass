@@ -4,21 +4,11 @@ import (
 	"github.com/scionproto/scion/go/lib/addr"
 )
 
-// PathEnumerator is an implementation of the Filter interface that combines
-// (partial) path segments into full src-to-dst paths.
-type PathEnumerator struct {
-	SrcIA, DstIA addr.IA
-}
-
-func (pe PathEnumerator) Filter(segments []Segment) []Segment {
-	return AllSrcDst(segments, pe.SrcIA, pe.DstIA)
-}
-
-// AllSrcDst enumerates all possible end-to-end segments between a source and
+// SrcDstPaths enumerates all possible end-to-end segments between a source and
 // destination ISD-AS pair from a given set of segments. For constant-bounded
 // segment length, the runtime complexity is linear in the number of
 // enumeratable segments starting at the source ISD-AS.
-func AllSrcDst(segments []Segment, srcIA, dstIA addr.IA) []Segment {
+func SrcDstPaths(segments []Segment, srcIA, dstIA addr.IA) []Segment {
 	buckets := createSegmentBuckets(segments)
 	seglists := recursiveSrcDstSeglists(srcIA, dstIA, buckets)
 	flattened := flattenSeglists(seglists)

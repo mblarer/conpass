@@ -12,6 +12,7 @@ import (
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	segment "github.com/mblarer/scion-ipn/segment"
+	filter "github.com/mblarer/scion-ipn/filter"
 	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
@@ -56,9 +57,13 @@ func runClient() error {
 	if err != nil {
 		return err
 	}
-	segments, err := segment.QuerySegments(ia)
+	paths, err := appnet.QueryPaths(ia)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to query paths: %s", err.Error())
+	}
+	segments, err := segment.SplitPaths(paths)
+	if err != nil {
+		return fmt.Errorf("failed to split paths: %s", err.Error())
 	}
 	filtered, err := filterSegments(segments)
 	if err != nil {
@@ -113,24 +118,27 @@ func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
 	if err != nil {
 		fmt.Println("could not create ACL policy:", err.Error())
 	}
+	/*
 	seq, err := createSequence()
 	if err != nil {
 		fmt.Println("could not create sequence policy:", err.Error())
 	}
+	*/
 	filters := make([]segment.Filter, 0)
 	if acl != nil {
-		aclFilter := segment.PredicateFilter{segment.ACLPredicate{acl}}
+		aclFilter := filter.FromACL(*acl)
 		filters = append(filters, aclFilter)
 	}
+	/*
 	if seq != nil {
 		srcIA := (*appnet.DefNetwork()).IA
 		dstIA, _ := addr.IAFromString(targetIA)
-		pathEnumerator := segment.PathEnumerator{SrcIA: srcIA, DstIA: dstIA}
-		sequenceFilter := segment.PredicateFilter{segment.SequencePredicate{seq}}
+		pathEnumerator := filter.SrcDstPathEnumerator(srcIA, dstIA)
+		sequenceFilter := filter.FromSequence(*seq)
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
-	filter := segment.FilterComposition{filters}
-	filtered := filter.Filter(segments)
+	*/
+	filtered := filter.FromFilters(filters...).Filter(segments)
 	return filtered, nil
 }
 

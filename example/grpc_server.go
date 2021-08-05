@@ -11,6 +11,7 @@ import (
 	"os"
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
+	filter "github.com/mblarer/scion-ipn/filter"
 	segment "github.com/mblarer/scion-ipn/segment"
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
@@ -93,7 +94,8 @@ func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
 	if err != nil {
 		return nil, err
 	}
-	return segment.PredicateFilter{segment.ACLPredicate{acl}}.Filter(segments), nil
+	filtered := filter.FromACL(*acl).Filter(segments)
+	return filtered, nil
 }
 
 func createACL() (*pol.ACL, error) {
