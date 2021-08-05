@@ -12,6 +12,7 @@ import (
 
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	segment "github.com/mblarer/scion-ipn/segment"
+	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
 	grpc "google.golang.org/grpc"
@@ -19,6 +20,7 @@ import (
 
 const (
 	defaultAclFilepath     = ""
+	defaultSeqFilepath     = ""
 	defaultTargetIA        = "17-ffaa:1:ef4"
 	defaultNegotiationHost = "192.168.1.2"
 	defaultNegotiationPort = "1234"
@@ -26,6 +28,7 @@ const (
 
 var (
 	aclFilepath     string
+	seqFilepath     string
 	targetIA        string
 	negotiationHost string
 	negotiationPort string
@@ -74,6 +77,7 @@ func runClient() error {
 
 func parseArgs() {
 	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath, "path to ACL definition file (JSON)")
+	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath, "path to sequence definition file (JSON)")
 	flag.StringVar(&targetIA, "ia", defaultTargetIA, "ISD-AS of the target host")
 	flag.StringVar(&negotiationHost, "host", defaultNegotiationHost, "IP address of the negotiation server")
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number of the negotiation server")
@@ -107,9 +111,25 @@ func printLit(lit []*pb.Interface) {
 func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
 	acl, err := createACL()
 	if err != nil {
-		return nil, err
+		fmt.Println("could not create ACL policy:", err.Error())
 	}
-	filter := segment.PredicateFilter{segment.ACLPredicate{acl}}
+	seq, err := createSequence()
+	if err != nil {
+		fmt.Println("could not create sequence policy:", err.Error())
+	}
+	filters := make([]segment.Filter, 0)
+	if acl != nil {
+		aclFilter := segment.PredicateFilter{segment.ACLPredicate{acl}}
+		filters = append(filters, aclFilter)
+	}
+	if seq != nil {
+		srcIA := (*appnet.DefNetwork()).IA
+		dstIA, _ := addr.IAFromString(targetIA)
+		pathEnumerator := segment.PathEnumerator{SrcIA: srcIA, DstIA: dstIA}
+		sequenceFilter := segment.PredicateFilter{segment.SequencePredicate{seq}}
+		filters = append(filters, pathEnumerator, sequenceFilter)
+	}
+	filter := segment.FilterComposition{filters}
 	filtered := filter.Filter(segments)
 	return filtered, nil
 }
@@ -118,11 +138,24 @@ func createACL() (*pol.ACL, error) {
 	acl := new(pol.ACL)
 	jsonACL, err := os.ReadFile(aclFilepath)
 	if err != nil {
-		jsonACL = []byte(`["+"]`)
+		return nil, err
 	}
 	err = json.Unmarshal(jsonACL, &acl)
 	if err != nil {
 		return nil, err
 	}
 	return acl, nil
+}
+
+func createSequence() (*pol.Sequence, error) {
+	seq := new(pol.Sequence)
+	jsonSeq, err := os.ReadFile(seqFilepath)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonSeq, &seq)
+	if err != nil {
+		return nil, err
+	}
+	return seq, nil
 }

@@ -10,6 +10,17 @@ type Filter interface {
 	Filter([]Segment) []Segment
 }
 
+type FilterComposition struct {
+	Filters []Filter
+}
+
+func (fc FilterComposition) Filter(segments []Segment) []Segment {
+	for _, filter := range fc.Filters {
+		segments = filter.Filter(segments)
+	}
+	return segments
+}
+
 type PredicateFilter struct {
 	P Predicate
 }
@@ -40,3 +51,34 @@ func (ap ACLPredicate) Accept(segment Segment) bool {
 	result := ap.ACL.Eval([]snet.Path{path})
 	return len(result) == 1
 }
+
+type SequencePredicate struct {
+	Sequence *pathpol.Sequence
+}
+
+func (sp SequencePredicate) Accept(segment Segment) bool {
+	path := path.InterfacePath{segment.PathInterfaces()}
+	result := sp.Sequence.Eval([]snet.Path{path})
+	return len(result) == 1
+}
+
+/*
+type PolicyFilter struct {
+	Policy *pathpol.Policy
+}
+
+func (pf PolicyFilter) Filter(segments []Segment) []Segment {
+	switch {
+	case pf.Policy.ACL != nil && pf.Policy.Sequence == nil:
+		return PredicateFilter{ACLPredicate{pf.Policy.ACL}}.Filter(segments)
+	case pf.Policy.ACL == nil && pf.Policy.Sequence != nil:
+		return PredicateFilter{SequencePredicate{pf.Policy.Sequence}}.Filter(segments)
+	case pf.Policy.ACL != nil && pf.Policy.Sequence != nil:
+		return CompositionFilter
+	default:
+		return segments
+	}
+	if pf.Policy.ACL == nil && pf.Policy.ACL
+	return CompositionFilter
+}
+*/
