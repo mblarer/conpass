@@ -68,7 +68,7 @@ func runClient() error {
 	}
 	log.Println("split paths into", len(segments), "different segments:")
 	for _, segment := range segments {
-		log.Println(" ", segment)
+		fmt.Println(" ", segment)
 	}
 	filtered, err := filterSegments(segments)
 	if err != nil {
@@ -76,13 +76,13 @@ func runClient() error {
 	}
 	log.Println(len(filtered), "segments remaining after initial filtering:")
 	for _, segment := range filtered {
-		log.Println(" ", segment)
+		fmt.Println(" ", segment)
 	}
 	rawsegs := segment.EncodeSegments([]segment.Segment{}, filtered)
 	request := &pb.Message{Segments: rawsegs}
 	response, err := c.Negotiate(ctx, request)
 	if err != nil {
-		return errors.New(fmt.Sprintf("could not negotiate: %v", err))
+		return fmt.Errorf("could not negotiate: %s", err.Error())
 	}
 	oldsegs := filtered
 	segments, err = segment.DecodeSegments(oldsegs, response.GetSegments())
@@ -91,7 +91,7 @@ func runClient() error {
 	}
 	log.Println("the server replied with", len(segments), "segments:")
 	for _, segment := range segments {
-		log.Println(" ", segment)
+		fmt.Println(" ", segment)
 	}
 	return nil
 }
