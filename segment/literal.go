@@ -1,6 +1,8 @@
 package segment
 
 import (
+	"fmt"
+
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 )
@@ -26,4 +28,18 @@ func (l Literal) SrcIA() addr.IA {
 
 func (l Literal) DstIA() addr.IA {
 	return l.Interfaces[len(l.Interfaces)-1].IA
+}
+
+func (l Literal) String() string {
+	str := ""
+	for i, iface := range l.Interfaces {
+		if i == len(l.Interfaces)-1 {
+			str += fmt.Sprintf(">%d %s", iface.ID, iface.IA)
+		} else if i%2 == 0 {
+			str += fmt.Sprintf("%s %d", iface.IA, iface.ID)
+		} else if i%2 == 1 {
+			str += fmt.Sprintf(">%d ", iface.ID)
+		}
+	}
+	return str
 }

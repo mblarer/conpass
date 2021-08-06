@@ -10,9 +10,9 @@ import (
 	"os"
 	"time"
 
+	filter "github.com/mblarer/scion-ipn/filter"
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	segment "github.com/mblarer/scion-ipn/segment"
-	filter "github.com/mblarer/scion-ipn/filter"
 	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
 	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
@@ -61,13 +61,22 @@ func runClient() error {
 	if err != nil {
 		return fmt.Errorf("failed to query paths: %s", err.Error())
 	}
+	log.Println("queried", len(paths), "different paths to", targetIA)
 	segments, err := segment.SplitPaths(paths)
 	if err != nil {
 		return fmt.Errorf("failed to split paths: %s", err.Error())
 	}
+	log.Println("split paths into", len(segments), "different segments:")
+	for _, segment := range segments {
+		log.Println(" ", segment)
+	}
 	filtered, err := filterSegments(segments)
 	if err != nil {
 		return err
+	}
+	log.Println(len(filtered), "segments remaining after initial filtering:")
+	for _, segment := range filtered {
+		log.Println(" ", segment)
 	}
 	rawsegs := segment.EncodeSegments([]segment.Segment{}, filtered)
 	request := &pb.Message{Segments: rawsegs}
@@ -75,8 +84,15 @@ func runClient() error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("could not negotiate: %v", err))
 	}
-	log.Println("reply:")
-	printSeg(response.GetSegments())
+	oldsegs := filtered
+	segments, err = segment.DecodeSegments(oldsegs, response.GetSegments())
+	if err != nil {
+		return fmt.Errorf("failed to decode server response: %s", err.Error())
+	}
+	log.Println("the server replied with", len(segments), "segments:")
+	for _, segment := range segments {
+		log.Println(" ", segment)
+	}
 	return nil
 }
 
@@ -87,30 +103,6 @@ func parseArgs() {
 	flag.StringVar(&negotiationHost, "host", defaultNegotiationHost, "IP address of the negotiation server")
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number of the negotiation server")
 	flag.Parse()
-}
-
-func printSeg(segs []*pb.Segment) {
-	for _, seg := range segs {
-		if len(seg.GetLiteral()) > 0 {
-			fmt.Printf("  [%d]: ", seg.GetId())
-			printLit(seg.GetLiteral())
-			fmt.Printf("\n")
-		} else {
-			fmt.Printf("  [%d]: %v\n", seg.GetId(), seg.GetComposition())
-		}
-	}
-}
-
-func printLit(lit []*pb.Interface) {
-	for i, iface := range lit {
-		if i == len(lit)-1 {
-			fmt.Printf(">%d %s", iface.GetId(), addr.IAInt(iface.GetIsdAs()).IA())
-		} else if i%2 == 0 {
-			fmt.Printf("%s %d", addr.IAInt(iface.GetIsdAs()).IA(), iface.GetId())
-		} else if i%2 == 1 {
-			fmt.Printf(">%d ", iface.GetId())
-		}
-	}
 }
 
 func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {

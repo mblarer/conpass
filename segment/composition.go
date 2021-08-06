@@ -31,3 +31,18 @@ func (c Composition) SrcIA() addr.IA {
 func (c Composition) DstIA() addr.IA {
 	return (*c.Segments[len(c.Segments)-1]).DstIA()
 }
+
+func (c Composition) String() string {
+	str := "["
+	for i, segment := range c.Segments {
+		str += "("
+		str += (*segment).String()
+		str += ")"
+		if i == len(c.Segments)-1 {
+			break
+		}
+		str += ", "
+	}
+	str += "]"
+	return str
+}

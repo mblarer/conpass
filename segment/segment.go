@@ -1,6 +1,8 @@
 package segment
 
 import (
+	"fmt"
+
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 )
@@ -11,4 +13,5 @@ type Segment interface {
 	PathInterfaces() []snet.PathInterface
 	SrcIA() addr.IA
 	DstIA() addr.IA
+	fmt.Stringer
 }
