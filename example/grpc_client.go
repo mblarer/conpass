@@ -62,6 +62,9 @@ func runClient() error {
 		return fmt.Errorf("failed to query paths: %s", err.Error())
 	}
 	log.Println("queried", len(paths), "different paths to", targetIA)
+	for _, path := range paths {
+		fmt.Println(" ", path)
+	}
 	segments, err := segment.SplitPaths(paths)
 	if err != nil {
 		return fmt.Errorf("failed to split paths: %s", err.Error())
