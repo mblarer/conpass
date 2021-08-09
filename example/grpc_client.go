@@ -70,27 +70,28 @@ func runClient() error {
 	for _, segment := range segments {
 		fmt.Println(" ", segment)
 	}
-	filtered, err := filterSegments(segments)
+	newsegs, err := filterSegments(segments)
 	if err != nil {
 		return err
 	}
-	log.Println(len(filtered), "segments remaining after initial filtering:")
-	for _, segment := range filtered {
+	log.Println(len(newsegs), "segments remaining after initial filtering:")
+	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
 	}
-	rawsegs := segment.EncodeSegments([]segment.Segment{}, filtered)
-	request := &pb.Message{Segments: rawsegs}
+	oldsegs := []segment.Segment{}
+	rawnewsegs := segment.EncodeSegments(newsegs, oldsegs)
+	request := &pb.Message{Segments: rawnewsegs}
 	response, err := c.Negotiate(ctx, request)
 	if err != nil {
 		return fmt.Errorf("could not negotiate: %s", err.Error())
 	}
-	oldsegs := filtered
-	segments, err = segment.DecodeSegments(oldsegs, response.GetSegments())
+	oldsegs = newsegs
+	newsegs, err = segment.DecodeSegments(response.GetSegments(), oldsegs)
 	if err != nil {
 		return fmt.Errorf("failed to decode server response: %s", err.Error())
 	}
 	log.Println("the server replied with", len(segments), "segments:")
-	for _, segment := range segments {
+	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
 	}
 	return nil
