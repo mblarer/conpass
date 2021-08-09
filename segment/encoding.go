@@ -17,13 +17,13 @@ func DecodeSegments(rawsegs []*proto.Segment, oldsegs []Segment) ([]Segment, err
 		if len(rawifs) > 0 {
 			newsegs[i] = FromInterfaces(DecodeInterfaces(rawifs)...)
 		} else {
-			subsegs := make([]*Segment, len(segids))
+			subsegs := make([]Segment, len(segids))
 			for j, id := range segids {
 				switch {
 				case int(id) < len(oldsegs):
-					subsegs[j] = &oldsegs[id]
+					subsegs[j] = oldsegs[id]
 				case int(id) < len(oldsegs)+len(newsegs):
-					subsegs[j] = &newsegs[int(id)-len(oldsegs)]
+					subsegs[j] = newsegs[int(id)-len(oldsegs)]
 				default:
 					return nil, errors.New("subsegment id is greater/equal to segment id")
 				}
