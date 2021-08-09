@@ -15,6 +15,7 @@ import (
 	segment "github.com/mblarer/scion-ipn/segment"
 	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
 	addr "github.com/scionproto/scion/go/lib/addr"
+	snet "github.com/scionproto/scion/go/lib/snet"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
 	grpc "google.golang.org/grpc"
 )
@@ -97,6 +98,29 @@ func runClient() error {
 	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
 	}
+	newsegs, err = filterSegments(segments)
+	if err != nil {
+		return err
+	}
+	log.Println(len(newsegs), "segments remaining after final filtering:")
+	for _, segment := range newsegs {
+		fmt.Println(" ", segment)
+	}
+	newpaths := make([]snet.Path, 0)
+	// This is currently O(n*n), we can do it in O(n)
+	for _, path := range paths {
+		for _, seg := range newsegs {
+			if string(snet.Fingerprint(path)) == segment.Fingerprint(seg) {
+				newpaths = append(newpaths, path)
+			}
+		}
+	}
+	fmt.Println()
+	log.Println("negotiated", len(newpaths), "paths in total:")
+	for _, path := range newpaths {
+		fmt.Println(" ", path)
+	}
+
 	return nil
 }
 
