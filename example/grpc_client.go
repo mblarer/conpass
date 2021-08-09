@@ -98,7 +98,7 @@ func runClient() error {
 	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
 	}
-	newsegs, err = filterSegments(segments)
+	//newsegs, err = filterSegments(segments)
 	log.Println(len(newsegs), "segments remaining after final filtering:")
 	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
