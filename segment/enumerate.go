@@ -15,21 +15,21 @@ func SrcDstPaths(segments []Segment, srcIA, dstIA addr.IA) []Segment {
 	return flattened
 }
 
-func createSegmentBuckets(segments []Segment) map[addr.IA][]Segment {
-	buckets := make(map[addr.IA][]Segment, len(segments))
+func createSegmentBuckets(segments []Segment) map[string][]Segment {
+	buckets := make(map[string][]Segment, len(segments))
 	for _, segment := range segments {
 		segmentSrcIA := segment.SrcIA()
-		buckets[segmentSrcIA] = append(buckets[segmentSrcIA], segment)
+		buckets[segmentSrcIA.String()] = append(buckets[segmentSrcIA.String()], segment)
 	}
 	return buckets
 }
 
-func recursiveSrcDstSeglists(srcIA, dstIA addr.IA, buckets map[addr.IA][]Segment) [][]*Segment {
-	if srcIA == dstIA {
+func recursiveSrcDstSeglists(srcIA, dstIA addr.IA, buckets map[string][]Segment) [][]*Segment {
+	if srcIA.String() == dstIA.String() {
 		return [][]*Segment{[]*Segment{}}
 	}
 	srcToDstSeglists := make([][]*Segment, 0)
-	for _, srcToMidSegment := range buckets[srcIA] {
+	for _, srcToMidSegment := range buckets[srcIA.String()] {
 		midIA := srcToMidSegment.DstIA()
 		midToDstSeglists := recursiveSrcDstSeglists(midIA, dstIA, buckets)
 		for _, midToDstSeglist := range midToDstSeglists {
