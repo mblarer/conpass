@@ -99,12 +99,15 @@ func runClient() error {
 		fmt.Println(" ", segment)
 	}
 	newsegs, err = filterSegments(segments)
-	if err != nil {
-		return err
-	}
 	log.Println(len(newsegs), "segments remaining after final filtering:")
 	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
+	}
+	srcIA := (*appnet.DefNetwork()).IA
+	dstIA, _ := addr.IAFromString(targetIA)
+	newsegs = segment.SrcDstPaths(newsegs, srcIA, dstIA)
+	if err != nil {
+		return err
 	}
 	newpaths := make([]snet.Path, 0)
 	// This is currently O(n*n), we can do it in O(n)
