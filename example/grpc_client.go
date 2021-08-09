@@ -93,7 +93,7 @@ func runClient() error {
 	if err != nil {
 		return fmt.Errorf("failed to decode server response: %s", err.Error())
 	}
-	log.Println("the server replied with", len(segments), "segments:")
+	log.Println("the server replied with", len(newsegs), "segments:")
 	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
 	}
