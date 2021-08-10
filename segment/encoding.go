@@ -35,10 +35,11 @@ func DecodeSegments(rawsegs []*proto.Segment, oldsegs []Segment) ([]Segment, err
 	return newsegs, nil
 }
 
-func DecodeInterfaces(rawifs []*proto.Interface) []snet.PathInterface {
-	interfaces := make([]snet.PathInterface, len(rawifs))
-	for i, rawif := range rawifs {
-		bytes := rawif.GetData()
+func DecodeInterfaces(rawifs []byte) []snet.PathInterface {
+	seglen := int(rawifs[0])
+	interfaces := make([]snet.PathInterface, seglen)
+	for i := 0; i < seglen; i++ {
+		bytes := rawifs[i*16+1 : (i+1)*16+1]
 		id := binary.BigEndian.Uint64(bytes[0:8])
 		ia := binary.BigEndian.Uint64(bytes[8:16])
 		interfaces[i] = snet.PathInterface{
@@ -62,13 +63,13 @@ func EncodeSegments(newsegs, oldsegs []Segment) []*proto.Segment {
 	return rawsegs
 }
 
-func EncodeInterfaces(interfaces []snet.PathInterface) []*proto.Interface {
-	rawifs := make([]*proto.Interface, len(interfaces))
+func EncodeInterfaces(interfaces []snet.PathInterface) []byte {
+	rawifs := make([]byte, 1+16*len(interfaces))
+	rawifs[0] = uint8(len(interfaces))
 	for i, iface := range interfaces {
-		bytes := make([]byte, 16)
+		bytes := rawifs[i*16+1 : (i+1)*16+1]
 		binary.BigEndian.PutUint64(bytes[0:8], uint64(iface.ID))
 		binary.BigEndian.PutUint64(bytes[8:16], uint64(iface.IA.IAInt()))
-		rawifs[i] = &proto.Interface{Data: bytes}
 	}
 	return rawifs
 }

@@ -21,11 +21,7 @@ message Option {
 message Segment {
   uint32 id = 1;
   bool valid = 2;
-  repeated Interface literal = 3;
+  bytes literal = 3;
   repeated uint32 composition = 4;
   repeated Option options = 5;
-}
-
-message Interface {
-  bytes data = 1;
 }
