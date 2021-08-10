@@ -9,15 +9,5 @@ service NegotiationService {
 }
 
 message Message {
-  repeated Option options = 1;
-  repeated Segment segments = 2;
-}
-
-message Option {
-  uint32 type = 1;
-  bytes data = 2;
-}
-
-message Segment {
   bytes data = 1;
 }

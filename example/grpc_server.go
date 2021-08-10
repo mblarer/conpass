@@ -50,8 +50,7 @@ type server struct {
 
 func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Println("request:")
-	rawoldsegs := in.GetSegments()
-	oldsegs, err := segment.DecodeSegments(rawoldsegs, []segment.Segment{})
+	oldsegs, err := segment.DecodeSegments(in.GetData(), []segment.Segment{})
 	for _, segment := range oldsegs {
 		fmt.Println(" ", segment)
 	}
@@ -62,8 +61,8 @@ func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, e
 	if err != nil {
 		return nil, err
 	}
-	rawnewsegs := segment.EncodeSegments(newsegs, oldsegs)
-	return &pb.Message{Segments: rawnewsegs}, nil
+	bytes := segment.EncodeSegments(newsegs, oldsegs)
+	return &pb.Message{Data: bytes}, nil
 }
 
 func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {

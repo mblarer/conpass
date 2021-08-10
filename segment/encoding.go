@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 
-	proto "github.com/mblarer/scion-ipn/proto/negotiation"
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/common"
 	"github.com/scionproto/scion/go/lib/snet"
@@ -20,19 +19,22 @@ const (
 	SegAcceptedMask  uint8 = 1 << 1
 )
 
-func DecodeSegments(rawsegs []*proto.Segment, oldsegs []Segment) ([]Segment, error) {
-	newsegs := make([]Segment, len(rawsegs))
-	for i, rawseg := range rawsegs {
-		bytes := rawseg.GetData()
+func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, error) {
+	hdrlen := int(bytes[1])
+	numsegs := int(binary.BigEndian.Uint16(bytes[2:]))
+	newsegs := make([]Segment, numsegs)
+	bytes = bytes[hdrlen:]
+	for i := 0; i < numsegs; i++ {
 		flags := bytes[0]
 		segtype := flags & SegTypeMask
 		//accepted := SegAcceptedTrue == (flags & SegAcceptedMask)
 		seglen := int(bytes[1])
-		//optlen := binary.BigEndian.Uint16(bytes[2:])
+		optlen := int(binary.BigEndian.Uint16(bytes[2:]))
 
 		switch segtype {
 		case SegTypeLiteral:
 			newsegs[i] = FromInterfaces(DecodeInterfaces(bytes[4:], seglen)...)
+			bytes = bytes[4 + seglen * 16 + optlen:]
 		case SegTypeComposition:
 			subsegs := make([]Segment, seglen)
 			for j := 0; j < seglen; j++ {
@@ -47,6 +49,7 @@ func DecodeSegments(rawsegs []*proto.Segment, oldsegs []Segment) ([]Segment, err
 				}
 			}
 			newsegs[i] = FromSegments(subsegs...)
+			bytes = bytes[4 + seglen * 2 + optlen:]
 		}
 	}
 	return newsegs, nil
@@ -66,9 +69,13 @@ func DecodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
 }
 
 // EncodeSegments encodes a new set of segments for transport.
-func EncodeSegments(newsegs, oldsegs []Segment) []*proto.Segment {
-	rawsegs := make([]*proto.Segment, len(newsegs))
-	for i, newseg := range newsegs {
+func EncodeSegments(newsegs, oldsegs []Segment) []byte {
+	allbytes := make([]byte, 4)
+	hdrlen := uint8(4)
+	numsegs := uint16(len(newsegs))
+	allbytes[1] = hdrlen
+	binary.BigEndian.PutUint16(allbytes[2:], numsegs)
+	for _, newseg := range newsegs {
 		interfaces := newseg.PathInterfaces()
 		flags := SegTypeLiteral | SegAcceptedTrue
 		seglen := len(interfaces)
@@ -80,9 +87,9 @@ func EncodeSegments(newsegs, oldsegs []Segment) []*proto.Segment {
 		binary.BigEndian.PutUint16(bytes[2:], uint16(optlen))
 		EncodeInterfaces(bytes[4:], interfaces)
 		
-		rawsegs[i] = &proto.Segment{Data: bytes}
+		allbytes = append(allbytes, bytes...)
 	}
-	return rawsegs
+	return allbytes
 }
 
 func EncodeInterfaces(bytes []byte, interfaces []snet.PathInterface) {

@@ -83,14 +83,14 @@ func runClient() error {
 		fmt.Println(" ", segment)
 	}
 	oldsegs := []segment.Segment{}
-	rawnewsegs := segment.EncodeSegments(newsegs, oldsegs)
-	request := &pb.Message{Segments: rawnewsegs}
+	bytes := segment.EncodeSegments(newsegs, oldsegs)
+	request := &pb.Message{Data: bytes}
 	response, err := c.Negotiate(ctx, request)
 	if err != nil {
 		return fmt.Errorf("could not negotiate: %s", err.Error())
 	}
 	oldsegs = newsegs
-	newsegs, err = segment.DecodeSegments(response.GetSegments(), oldsegs)
+	newsegs, err = segment.DecodeSegments(response.GetData(), oldsegs)
 	if err != nil {
 		return fmt.Errorf("failed to decode server response: %s", err.Error())
 	}
