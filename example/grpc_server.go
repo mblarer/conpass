@@ -13,7 +13,6 @@ import (
 	pb "github.com/mblarer/scion-ipn/proto/negotiation"
 	filter "github.com/mblarer/scion-ipn/filter"
 	segment "github.com/mblarer/scion-ipn/segment"
-	addr "github.com/scionproto/scion/go/lib/addr"
 	pol "github.com/scionproto/scion/go/lib/pathpol"
 	grpc "google.golang.org/grpc"
 )
@@ -52,8 +51,10 @@ type server struct {
 func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, error) {
 	log.Println("request:")
 	rawoldsegs := in.GetSegments()
-	printSeg(rawoldsegs)
 	oldsegs, err := segment.DecodeSegments(rawoldsegs, []segment.Segment{})
+	for _, segment := range oldsegs {
+		fmt.Println(" ", segment)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -63,30 +64,6 @@ func (s *server) Negotiate(cotx context.Context, in *pb.Message) (*pb.Message, e
 	}
 	rawnewsegs := segment.EncodeSegments(newsegs, oldsegs)
 	return &pb.Message{Segments: rawnewsegs}, nil
-}
-
-func printSeg(segs []*pb.Segment) {
-	for _, seg := range segs {
-		if len(seg.GetLiteral()) > 0 {
-			fmt.Printf("  [%d]: ", seg.GetId())
-			printLit(seg.GetLiteral())
-			fmt.Printf("\n")
-		} else {
-			fmt.Printf("  [%d]: %v\n", seg.GetId(), seg.GetComposition())
-		}
-	}
-}
-
-func printLit(lit []*pb.Interface) {
-	for i, iface := range lit {
-		if i == len(lit)-1 {
-			fmt.Printf(">%d %s", iface.GetId(), addr.IAInt(iface.GetIsdAs()).IA())
-		} else if i%2 == 0 {
-			fmt.Printf("%s %d", addr.IAInt(iface.GetIsdAs()).IA(), iface.GetId())
-		} else if i%2 == 1 {
-			fmt.Printf(">%d ", iface.GetId())
-		}
-	}
 }
 
 func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {

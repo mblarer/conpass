@@ -27,6 +27,5 @@ message Segment {
 }
 
 message Interface {
-  uint64 isd_as = 1;
-  uint64 id = 2;
+  bytes data = 1;
 }

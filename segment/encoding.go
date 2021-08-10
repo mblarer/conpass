@@ -1,6 +1,7 @@
 package segment
 
 import (
+	"encoding/binary"
 	"errors"
 
 	proto "github.com/mblarer/scion-ipn/proto/negotiation"
@@ -37,9 +38,12 @@ func DecodeSegments(rawsegs []*proto.Segment, oldsegs []Segment) ([]Segment, err
 func DecodeInterfaces(rawifs []*proto.Interface) []snet.PathInterface {
 	interfaces := make([]snet.PathInterface, len(rawifs))
 	for i, rawif := range rawifs {
+		bytes := rawif.GetData()
+		id := binary.BigEndian.Uint64(bytes[0:8])
+		ia := binary.BigEndian.Uint64(bytes[8:16])
 		interfaces[i] = snet.PathInterface{
-			ID: common.IFIDType(rawif.GetId()),
-			IA: addr.IAInt(rawif.GetIsdAs()).IA(),
+			ID: common.IFIDType(id),
+			IA: addr.IAInt(ia).IA(),
 		}
 	}
 	return interfaces
@@ -61,10 +65,10 @@ func EncodeSegments(newsegs, oldsegs []Segment) []*proto.Segment {
 func EncodeInterfaces(interfaces []snet.PathInterface) []*proto.Interface {
 	rawifs := make([]*proto.Interface, len(interfaces))
 	for i, iface := range interfaces {
-		rawifs[i] = &proto.Interface{
-			Id:    uint64(iface.ID),
-			IsdAs: uint64(iface.IA.IAInt()),
-		}
+		bytes := make([]byte, 16)
+		binary.BigEndian.PutUint64(bytes[0:8], uint64(iface.ID))
+		binary.BigEndian.PutUint64(bytes[8:16], uint64(iface.IA.IAInt()))
+		rawifs[i] = &proto.Interface{Data: bytes}
 	}
 	return rawifs
 }
