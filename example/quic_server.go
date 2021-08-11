@@ -34,10 +34,10 @@ func runServer() error {
 	flag.StringVar(&aclFilepath, "acl", "", "path to ACL definition file (JSON)")
 	flag.Parse()
 	acl, err := createACL()
-	agent := ipn.Responder{Filter: filter.FromACL(*acl)}
 	if err != nil {
 		return err
 	}
+	agent := ipn.Responder{Filter: filter.FromACL(*acl)}
 	tlsConfig, err := generateTLSConfig()
 	if err != nil {
 		return err

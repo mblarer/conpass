@@ -57,80 +57,38 @@ func runClient() error {
 		return err
 	}
 	defer stream.Close()
-	ia, err := addr.IAFromString(targetIA)
-	if err != nil {
-		return err
-	}
-	paths, err := appnet.QueryPaths(ia)
-	if err != nil {
-		return fmt.Errorf("failed to query paths: %s", err.Error())
-	}
-	log.Println("queried", len(paths), "different paths to", targetIA)
-	for _, path := range paths {
-		fmt.Println(" ", path)
-	}
-	segments, err := segment.SplitPaths(paths)
-	if err != nil {
-		return fmt.Errorf("failed to split paths: %s", err.Error())
-	}
-	log.Println("split paths into", len(segments), "different segments:")
-	for _, segment := range segments {
-		fmt.Println(" ", segment)
-	}
-	newsegs, err := filterSegments(segments)
-	if err != nil {
-		return err
-	}
-	log.Println(len(newsegs), "segments remaining after initial filtering:")
-	for _, segment := range newsegs {
-		fmt.Println(" ", segment)
-	}
-	oldsegs := []segment.Segment{}
-	bytes := segment.EncodeSegments(newsegs, oldsegs)
-	_, err = stream.Write(bytes)
-	if err != nil {
-		return err
-	}
-	recvbuf := make([]byte, 64 * 1024)
-	_, err = stream.Read(recvbuf)
-	if err != nil {
-		return err
-	}
-	oldsegs = newsegs
-	newsegs, err = segment.DecodeSegments(recvbuf, oldsegs)
-	if err != nil {
-		return fmt.Errorf("failed to decode server response: %s", err.Error())
-	}
-	log.Println("the server replied with", len(newsegs), "segments:")
-	for _, segment := range newsegs {
-		fmt.Println(" ", segment)
-	}
-	//newsegs, err = filterSegments(segments)
-	log.Println(len(newsegs), "segments remaining after final filtering:")
-	for _, segment := range newsegs {
-		fmt.Println(" ", segment)
-	}
+
 	srcIA := (*appnet.DefNetwork()).IA
 	dstIA, _ := addr.IAFromString(targetIA)
-	newsegs = segment.SrcDstPaths(newsegs, srcIA, dstIA)
+	acl, err := createACL()
+	if err != nil {
+		fmt.Println("could not create ACL policy:", err.Error())
+	}
+	seq, err := createSequence()
+	if err != nil {
+		fmt.Println("could not create sequence policy:", err.Error())
+	}
+	filters := make([]segment.Filter, 0)
+	if acl != nil {
+		aclFilter := filter.FromACL(*acl)
+		filters = append(filters, aclFilter)
+	}
+	if seq != nil {
+		srcIA := (*appnet.DefNetwork()).IA
+		dstIA, _ := addr.IAFromString(targetIA)
+		pathEnumerator := filter.SrcDstPathEnumerator(srcIA, dstIA)
+		sequenceFilter := filter.FromSequence(*seq)
+		filters = append(filters, pathEnumerator, sequenceFilter)
+	}
+	agent := ipn.Initiator{
+		SrcIA: srcIA,
+		DstIA: dstIA,
+		Filter: filter.FromFilters(filters...),
+	}
+	_, err = agent.NegotiateOver(stream)
 	if err != nil {
 		return err
 	}
-	newpaths := make([]snet.Path, 0)
-	// This is currently O(n*n), we can do it in O(n)
-	for _, path := range paths {
-		for _, seg := range newsegs {
-			if string(snet.Fingerprint(path)) == segment.Fingerprint(seg) {
-				newpaths = append(newpaths, path)
-			}
-		}
-	}
-	fmt.Println()
-	log.Println("negotiated", len(newpaths), "paths in total:")
-	for _, path := range newpaths {
-		fmt.Println(" ", path)
-	}
-
 	return nil
 }
 
@@ -144,10 +102,6 @@ func parseArgs() {
 }
 
 func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
-	acl, err := createACL()
-	if err != nil {
-		fmt.Println("could not create ACL policy:", err.Error())
-	}
 	seq, err := createSequence()
 	if err != nil {
 		fmt.Println("could not create sequence policy:", err.Error())
