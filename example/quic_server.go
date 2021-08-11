@@ -9,15 +9,14 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"flag"
-	"fmt"
 	"log"
 	"math/big"
 	"os"
 
+	"github.com/mblarer/scion-ipn"
 	"github.com/lucas-clemente/quic-go"
-	filter "github.com/mblarer/scion-ipn/filter"
-	segment "github.com/mblarer/scion-ipn/segment"
-	pol "github.com/scionproto/scion/go/lib/pathpol"
+	"github.com/mblarer/scion-ipn/filter"
+	"github.com/scionproto/scion/go/lib/pathpol"
 )
 
 const address = "192.168.1.2:1234"
@@ -34,6 +33,11 @@ func main() {
 func runServer() error {
 	flag.StringVar(&aclFilepath, "acl", "", "path to ACL definition file (JSON)")
 	flag.Parse()
+	acl, err := createACL()
+	agent := ipn.Responder{Filter: filter.FromACL(*acl)}
+	if err != nil {
+		return err
+	}
 	tlsConfig, err := generateTLSConfig()
 	if err != nil {
 		return err
@@ -52,25 +56,7 @@ func runServer() error {
 		if err != nil {
 			return err
 		}
-		log.Println("request:")
-		recvbuf := make([]byte, 64 * 1024)
-		_, err = stream.Read(recvbuf)
-		if err != nil {
-			return err
-		}
-		oldsegs, err := segment.DecodeSegments(recvbuf, []segment.Segment{})
-		for _, segment := range oldsegs {
-			fmt.Println(" ", segment)
-		}
-		if err != nil {
-			return err
-		}
-		newsegs, err := filterSegments(oldsegs)
-		if err != nil {
-			return err
-		}
-		bytes := segment.EncodeSegments(newsegs, oldsegs)
-		_, err = stream.Write(bytes)
+		_, err = agent.NegotiateOver(stream)
 		if err != nil {
 			return err
 		}
@@ -78,17 +64,8 @@ func runServer() error {
 	return nil
 }
 
-func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
-	acl, err := createACL()
-	if err != nil {
-		return nil, err
-	}
-	filtered := filter.FromACL(*acl).Filter(segments)
-	return filtered, nil
-}
-
-func createACL() (*pol.ACL, error) {
-	acl := new(pol.ACL)
+func createACL() (*pathpol.ACL, error) {
+	acl := new(pathpol.ACL)
 	jsonACL, err := os.ReadFile(aclFilepath)
 	if err != nil {
 		jsonACL = []byte(`["+"]`)
