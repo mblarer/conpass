@@ -10,12 +10,12 @@ import (
 	"os"
 
 	"github.com/lucas-clemente/quic-go"
-	filter "github.com/mblarer/scion-ipn/filter"
-	segment "github.com/mblarer/scion-ipn/segment"
-	appnet "github.com/netsec-ethz/scion-apps/pkg/appnet"
-	addr "github.com/scionproto/scion/go/lib/addr"
-	snet "github.com/scionproto/scion/go/lib/snet"
-	pol "github.com/scionproto/scion/go/lib/pathpol"
+	"github.com/mblarer/scion-ipn"
+	"github.com/mblarer/scion-ipn/filter"
+	"github.com/mblarer/scion-ipn/segment"
+	"github.com/netsec-ethz/scion-apps/pkg/appnet"
+	"github.com/scionproto/scion/go/lib/addr"
+	"github.com/scionproto/scion/go/lib/pathpol"
 )
 
 const (
@@ -81,8 +81,8 @@ func runClient() error {
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
 	agent := ipn.Initiator{
-		SrcIA: srcIA,
-		DstIA: dstIA,
+		SrcIA:  srcIA,
+		DstIA:  dstIA,
 		Filter: filter.FromFilters(filters...),
 	}
 	_, err = agent.NegotiateOver(stream)
@@ -101,29 +101,8 @@ func parseArgs() {
 	flag.Parse()
 }
 
-func filterSegments(segments []segment.Segment) ([]segment.Segment, error) {
-	seq, err := createSequence()
-	if err != nil {
-		fmt.Println("could not create sequence policy:", err.Error())
-	}
-	filters := make([]segment.Filter, 0)
-	if acl != nil {
-		aclFilter := filter.FromACL(*acl)
-		filters = append(filters, aclFilter)
-	}
-	if seq != nil {
-		srcIA := (*appnet.DefNetwork()).IA
-		dstIA, _ := addr.IAFromString(targetIA)
-		pathEnumerator := filter.SrcDstPathEnumerator(srcIA, dstIA)
-		sequenceFilter := filter.FromSequence(*seq)
-		filters = append(filters, pathEnumerator, sequenceFilter)
-	}
-	filtered := filter.FromFilters(filters...).Filter(segments)
-	return filtered, nil
-}
-
-func createACL() (*pol.ACL, error) {
-	acl := new(pol.ACL)
+func createACL() (*pathpol.ACL, error) {
+	acl := new(pathpol.ACL)
 	jsonACL, err := os.ReadFile(aclFilepath)
 	if err != nil {
 		return nil, err
@@ -135,8 +114,8 @@ func createACL() (*pol.ACL, error) {
 	return acl, nil
 }
 
-func createSequence() (*pol.Sequence, error) {
-	seq := new(pol.Sequence)
+func createSequence() (*pathpol.Sequence, error) {
+	seq := new(pathpol.Sequence)
 	jsonSeq, err := os.ReadFile(seqFilepath)
 	if err != nil {
 		return nil, err
