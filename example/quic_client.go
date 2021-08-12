@@ -15,6 +15,7 @@ import (
 	"github.com/mblarer/scion-ipn/segment"
 	"github.com/netsec-ethz/scion-apps/pkg/appnet"
 	"github.com/scionproto/scion/go/lib/addr"
+	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/pathpol"
 )
 
@@ -60,6 +61,22 @@ func runClient() error {
 
 	srcIA := (*appnet.DefNetwork()).IA
 	dstIA, _ := addr.IAFromString(targetIA)
+	paths, err := appnet.QueryPaths(dstIA)
+	if err != nil {
+		return fmt.Errorf("failed to query paths: %s", err.Error())
+	}
+	log.Println("queried", len(paths), "different paths to", dstIA)
+	for _, path := range paths {
+		fmt.Println(" ", path)
+	}
+	segments, err := segment.SplitPaths(paths)
+	if err != nil {
+		return fmt.Errorf("failed to split paths: %s", err.Error())
+	}
+	log.Println("split paths into", len(segments), "different segments:")
+	for _, segment := range segments {
+		fmt.Println(" ", segment)
+	}
 	acl, err := createACL()
 	if err != nil {
 		fmt.Println("could not create ACL policy:", err.Error())
@@ -74,20 +91,33 @@ func runClient() error {
 		filters = append(filters, aclFilter)
 	}
 	if seq != nil {
-		srcIA := (*appnet.DefNetwork()).IA
-		dstIA, _ := addr.IAFromString(targetIA)
 		pathEnumerator := filter.SrcDstPathEnumerator(srcIA, dstIA)
 		sequenceFilter := filter.FromSequence(*seq)
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
 	agent := ipn.Initiator{
-		SrcIA:  srcIA,
-		DstIA:  dstIA,
-		Filter: filter.FromFilters(filters...),
+		SrcIA:    srcIA,
+		DstIA:    dstIA,
+		Segments: segments,
+		Filter:   filter.FromFilters(filters...),
 	}
-	_, err = agent.NegotiateOver(stream)
+	segments, err = agent.NegotiateOver(stream)
 	if err != nil {
 		return err
+	}
+	newpaths := make([]snet.Path, 0)
+	// This is currently O(n*n), we can do it in O(n)
+	for _, path := range paths {
+		for _, seg := range segments {
+			if string(snet.Fingerprint(path)) == segment.Fingerprint(seg) {
+				newpaths = append(newpaths, path)
+			}
+		}
+	}
+	fmt.Println()
+	log.Println("negotiated", len(newpaths), "paths in total:")
+	for _, path := range newpaths {
+		fmt.Println(" ", path)
 	}
 	return nil
 }
