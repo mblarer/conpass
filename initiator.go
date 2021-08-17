@@ -47,9 +47,5 @@ func (agent Initiator) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 	for _, segment := range newsegs {
 		fmt.Println(" ", segment)
 	}
-	newsegs = segment.SrcDstPaths(newsegs, agent.SrcIA, agent.DstIA)
-	if err != nil {
-		return nil, err
-	}
 	return newsegs, nil
 }
