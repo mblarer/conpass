@@ -9,11 +9,12 @@ import (
 )
 
 type Responder struct {
-	Filter segment.Filter
+	Filter  segment.Filter
+	Verbose bool
 }
 
 func (agent Responder) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, error) {
-	recvbuffer := make([]byte, 64 * 1024)
+	recvbuffer := make([]byte, 64*1024)
 	_, err := stream.Read(recvbuffer)
 	if err != nil {
 		return nil, err
@@ -22,14 +23,18 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 	if err != nil {
 		return nil, err
 	}
-	log.Println("request contains", len(segsin), "segments:")
-	for _, segment := range segsin {
-		fmt.Println(" ", segment)
+	if agent.Verbose {
+		log.Println("request contains", len(segsin), "segments:")
+		for _, segment := range segsin {
+			fmt.Println(" ", segment)
+		}
 	}
 	segsout := agent.Filter.Filter(segsin)
-	log.Println("responding with", len(segsout), "segments:")
-	for _, segment := range segsout {
-		fmt.Println(" ", segment)
+	if agent.Verbose {
+		log.Println("responding with", len(segsout), "segments:")
+		for _, segment := range segsout {
+			fmt.Println(" ", segment)
+		}
 	}
 	sendbuffer := segment.EncodeSegments(segsout, segsin)
 	_, err = stream.Write(sendbuffer)

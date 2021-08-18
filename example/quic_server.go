@@ -13,8 +13,8 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/mblarer/scion-ipn"
 	"github.com/lucas-clemente/quic-go"
+	"github.com/mblarer/scion-ipn"
 	"github.com/mblarer/scion-ipn/filter"
 	"github.com/scionproto/scion/go/lib/pathpol"
 )
@@ -37,7 +37,10 @@ func runServer() error {
 	if err != nil {
 		return err
 	}
-	agent := ipn.Responder{Filter: filter.FromACL(*acl)}
+	agent := ipn.Responder{
+		Filter:  filter.FromACL(*acl),
+		Verbose: true,
+	}
 	tlsConfig, err := generateTLSConfig()
 	if err != nil {
 		return err

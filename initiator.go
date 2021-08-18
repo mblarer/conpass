@@ -14,13 +14,16 @@ type Initiator struct {
 	DstIA    addr.IA
 	Segments []segment.Segment
 	Filter   segment.Filter
+	Verbose  bool
 }
 
 func (agent Initiator) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, error) {
 	newsegs := agent.Filter.Filter(agent.Segments)
-	log.Println(len(newsegs), "segments remaining after initial filtering:")
-	for _, segment := range newsegs {
-		fmt.Println(" ", segment)
+	if agent.Verbose {
+		log.Println(len(newsegs), "segments remaining after initial filtering:")
+		for _, segment := range newsegs {
+			fmt.Println(" ", segment)
+		}
 	}
 	oldsegs := []segment.Segment{}
 	bytes := segment.EncodeSegments(newsegs, oldsegs)
@@ -38,14 +41,18 @@ func (agent Initiator) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode server response: %s", err.Error())
 	}
-	log.Println("the server replied with", len(newsegs), "segments:")
-	for _, segment := range newsegs {
-		fmt.Println(" ", segment)
+	if agent.Verbose {
+		log.Println("the server replied with", len(newsegs), "segments:")
+		for _, segment := range newsegs {
+			fmt.Println(" ", segment)
+		}
 	}
 	newsegs = agent.Filter.Filter(newsegs)
-	log.Println(len(newsegs), "segments remaining after final filtering:")
-	for _, segment := range newsegs {
-		fmt.Println(" ", segment)
+	if agent.Verbose {
+		log.Println(len(newsegs), "segments remaining after final filtering:")
+		for _, segment := range newsegs {
+			fmt.Println(" ", segment)
+		}
 	}
 	return newsegs, nil
 }

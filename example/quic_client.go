@@ -100,6 +100,7 @@ func runClient() error {
 		DstIA:    dstIA,
 		Segments: segments,
 		Filter:   filter.FromFilters(filters...),
+		Verbose:  true,
 	}
 	segments, err = agent.NegotiateOver(stream)
 	if err != nil {
