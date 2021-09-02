@@ -19,9 +19,11 @@ const (
 	SegAcceptedMask  uint8 = 1 << 1
 )
 
-func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, error) {
+func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, addr.IA, addr.IA, error) {
 	hdrlen := int(bytes[1])
 	numsegs := int(binary.BigEndian.Uint16(bytes[2:]))
+	srcIA := addr.IAInt(binary.BigEndian.Uint64(bytes[4:])).IA()
+	dstIA := addr.IAInt(binary.BigEndian.Uint64(bytes[12:])).IA()
 	newsegs := make([]Segment, numsegs)
 	bytes = bytes[hdrlen:]
 	for i := 0; i < numsegs; i++ {
@@ -45,14 +47,15 @@ func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, error) {
 				case int(id) < len(oldsegs)+len(newsegs):
 					subsegs[j] = newsegs[int(id)-len(oldsegs)]
 				default:
-					return nil, errors.New("subsegment id is greater/equal to segment id")
+					err := errors.New("subsegment id is greater/equal to segment id")
+					return nil, srcIA, dstIA, err
 				}
 			}
 			newsegs[i] = FromSegments(subsegs...)
 			bytes = bytes[4 + seglen * 2 + optlen:]
 		}
 	}
-	return newsegs, nil
+	return newsegs, srcIA, dstIA, nil
 }
 
 func DecodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
@@ -69,12 +72,14 @@ func DecodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
 }
 
 // EncodeSegments encodes a new set of segments for transport.
-func EncodeSegments(newsegs, oldsegs []Segment) []byte {
-	allbytes := make([]byte, 4)
-	hdrlen := uint8(4)
+func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) []byte {
+	hdrlen := 20
+	allbytes := make([]byte, hdrlen)
 	numsegs := uint16(len(newsegs))
-	allbytes[1] = hdrlen
+	allbytes[1] = uint8(hdrlen)
 	binary.BigEndian.PutUint16(allbytes[2:], numsegs)
+	binary.BigEndian.PutUint64(allbytes[4:], uint64(srcIA.IAInt()))
+	binary.BigEndian.PutUint64(allbytes[12:], uint64(dstIA.IAInt()))
 	for _, newseg := range newsegs {
 		interfaces := newseg.PathInterfaces()
 		flags := SegTypeLiteral | SegAcceptedTrue
@@ -86,7 +91,7 @@ func EncodeSegments(newsegs, oldsegs []Segment) []byte {
 		bytes[1] = uint8(seglen)
 		binary.BigEndian.PutUint16(bytes[2:], uint16(optlen))
 		EncodeInterfaces(bytes[4:], interfaces)
-		
+
 		allbytes = append(allbytes, bytes...)
 	}
 	return allbytes

@@ -19,7 +19,7 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 	if err != nil {
 		return nil, err
 	}
-	segsin, err := segment.DecodeSegments(recvbuffer, []segment.Segment{})
+	segsin, srcIA, dstIA, err := segment.DecodeSegments(recvbuffer, []segment.Segment{})
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 			fmt.Println(" ", segment)
 		}
 	}
-	sendbuffer := segment.EncodeSegments(segsout, segsin)
+	sendbuffer := segment.EncodeSegments(segsout, segsin, srcIA, dstIA)
 	_, err = stream.Write(sendbuffer)
 	if err != nil {
 		return nil, err

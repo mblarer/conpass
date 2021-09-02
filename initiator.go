@@ -26,7 +26,7 @@ func (agent Initiator) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 		}
 	}
 	oldsegs := []segment.Segment{}
-	bytes := segment.EncodeSegments(newsegs, oldsegs)
+	bytes := segment.EncodeSegments(newsegs, oldsegs, agent.SrcIA, agent.DstIA)
 	_, err := stream.Write(bytes)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (agent Initiator) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 		return nil, err
 	}
 	oldsegs = newsegs
-	newsegs, err = segment.DecodeSegments(recvbuf, oldsegs)
+	newsegs, _, _, err = segment.DecodeSegments(recvbuf, oldsegs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode server response: %s", err.Error())
 	}
