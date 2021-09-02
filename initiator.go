@@ -15,6 +15,7 @@ type Initiator struct {
 	Segments []segment.Segment
 	Filter   segment.Filter
 	Verbose  bool
+	PrintMsgSize bool
 }
 
 func (agent Initiator) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, error) {
@@ -27,14 +28,20 @@ func (agent Initiator) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 	}
 	oldsegs := []segment.Segment{}
 	bytes := segment.EncodeSegments(newsegs, oldsegs, agent.SrcIA, agent.DstIA)
+	if agent.PrintMsgSize {
+		fmt.Println("I:", len(bytes), "bytes")
+	}
 	_, err := stream.Write(bytes)
 	if err != nil {
 		return nil, err
 	}
 	recvbuf := make([]byte, 64*1024)
-	_, err = stream.Read(recvbuf)
+	n, err := stream.Read(recvbuf)
 	if err != nil {
 		return nil, err
+	}
+	if agent.PrintMsgSize {
+		fmt.Println("R:", n, "bytes")
 	}
 	oldsegs = newsegs
 	newsegs, _, _, err = segment.DecodeSegments(recvbuf, oldsegs)
