@@ -14,12 +14,12 @@ type Responder struct {
 }
 
 func (agent Responder) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, error) {
-	recvbuffer := make([]byte, 64*1024)
+	recvbuffer := make([]byte, 128*1024)
 	_, err := stream.Read(recvbuffer)
 	if err != nil {
 		return nil, err
 	}
-	segsin, srcIA, dstIA, err := segment.DecodeSegments(recvbuffer, []segment.Segment{})
+	segsin, accsegs, srcIA, dstIA, err := segment.DecodeSegments(recvbuffer, []segment.Segment{})
 	if err != nil {
 		return nil, err
 	}
@@ -29,14 +29,14 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, e
 			fmt.Println(" ", segment)
 		}
 	}
-	segsout := agent.Filter.Filter(segsin)
+	segsout := agent.Filter.Filter(accsegs)
 	if agent.Verbose {
 		log.Println("responding with", len(segsout), "segments:")
 		for _, segment := range segsout {
 			fmt.Println(" ", segment)
 		}
 	}
-	sendbuffer := segment.EncodeSegments(segsout, segsin, srcIA, dstIA)
+	sendbuffer, _ := segment.EncodeSegments(segsout, segsin, srcIA, dstIA)
 	_, err = stream.Write(sendbuffer)
 	if err != nil {
 		return nil, err

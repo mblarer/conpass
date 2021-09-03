@@ -19,17 +19,18 @@ const (
 	SegAcceptedMask  uint8 = 1 << 1
 )
 
-func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, addr.IA, addr.IA, error) {
+func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, []Segment, addr.IA, addr.IA, error) {
 	hdrlen := int(bytes[1])
 	numsegs := int(binary.BigEndian.Uint16(bytes[2:]))
 	srcIA := addr.IAInt(binary.BigEndian.Uint64(bytes[4:])).IA()
 	dstIA := addr.IAInt(binary.BigEndian.Uint64(bytes[12:])).IA()
 	newsegs := make([]Segment, numsegs)
+	accsegs := make([]Segment, 0)
 	bytes = bytes[hdrlen:]
 	for i := 0; i < numsegs; i++ {
 		flags := bytes[0]
 		segtype := flags & SegTypeMask
-		//accepted := SegAcceptedTrue == (flags & SegAcceptedMask)
+		accepted := SegAcceptedTrue == (flags & SegAcceptedMask)
 		seglen := int(bytes[1])
 		optlen := int(binary.BigEndian.Uint16(bytes[2:]))
 
@@ -48,14 +49,17 @@ func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, addr.IA, addr.I
 					subsegs[j] = newsegs[int(id)-len(oldsegs)]
 				default:
 					err := errors.New("subsegment id is greater/equal to segment id")
-					return nil, srcIA, dstIA, err
+					return nil, nil, srcIA, dstIA, err
 				}
 			}
 			newsegs[i] = FromSegments(subsegs...)
 			bytes = bytes[4 + seglen * 2 + optlen:]
 		}
+		if accepted {
+			accsegs = append(accsegs, newsegs[i])
+		}
 	}
-	return newsegs, srcIA, dstIA, nil
+	return newsegs, accsegs, srcIA, dstIA, nil
 }
 
 func DecodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
@@ -72,29 +76,96 @@ func DecodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
 }
 
 // EncodeSegments encodes a new set of segments for transport.
-func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) []byte {
+func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, []Segment) {
 	hdrlen := 20
 	allbytes := make([]byte, hdrlen)
-	numsegs := uint16(len(newsegs))
 	allbytes[1] = uint8(hdrlen)
-	binary.BigEndian.PutUint16(allbytes[2:], numsegs)
 	binary.BigEndian.PutUint64(allbytes[4:], uint64(srcIA.IAInt()))
 	binary.BigEndian.PutUint64(allbytes[12:], uint64(dstIA.IAInt()))
-	for _, newseg := range newsegs {
-		interfaces := newseg.PathInterfaces()
-		flags := SegTypeLiteral | SegAcceptedTrue
-		seglen := len(interfaces)
-		optlen := 0
 
-		bytes := make([]byte, 4+seglen*16+optlen)
-		bytes[0] = flags
-		bytes[1] = uint8(seglen)
-		binary.BigEndian.PutUint16(bytes[2:], uint16(optlen))
-		EncodeInterfaces(bytes[4:], interfaces)
-
-		allbytes = append(allbytes, bytes...)
+	segidx := make(map[string]int)
+	for idx, seg := range oldsegs {
+		segidx[Fingerprint(seg)] = idx
 	}
-	return allbytes
+	currentIdx := len(oldsegs)
+	sentsegs := make([]Segment, 0)
+
+	for _, newseg := range newsegs {
+		// encode (unaccepted) subsegments
+		subsegs := RecursiveSubsegments(newseg)
+		for _, subseg := range subsegs {
+			fprint := Fingerprint(subseg)
+			if _, ok := segidx[fprint]; !ok { // not seen before
+				segidx[fprint] = currentIdx
+				currentIdx++
+				accepted := false
+				allbytes = append(allbytes, EncodeSegment(subseg, accepted, segidx)...)
+				sentsegs = append(sentsegs, subseg)
+			}
+		}
+		// encode (accepted) segment
+		fprint := Fingerprint(newseg)
+		if idx, ok := segidx[fprint]; !ok { // not seen before
+			segidx[fprint] = currentIdx
+			currentIdx++
+			accepted := true
+			allbytes = append(allbytes, EncodeSegment(newseg, accepted, segidx)...)
+			sentsegs = append(sentsegs, newseg)
+		} else { // seen before
+			currentIdx++
+			accepted := true
+			allbytes = append(allbytes, EncodeSegment(FromSegments(oldsegs[idx]), accepted, segidx)...)
+			sentsegs = append(sentsegs, FromSegments(oldsegs[idx]))
+		}
+	}
+
+	numsegs := uint16(currentIdx)
+	binary.BigEndian.PutUint16(allbytes[2:], numsegs)
+	return allbytes, sentsegs
+}
+
+func EncodeSegment(segment Segment, accepted bool, segidx map[string]int) []byte {
+	var flags uint8
+	var seglen, optlen int
+	if accepted {
+		flags = SegAcceptedTrue
+	} else {
+		flags = SegAcceptedFalse
+	}
+	var bytes []byte
+
+	switch s := segment.(type) {
+	case Literal:
+		flags |= SegTypeLiteral
+		seglen = len(s.Interfaces)
+		bytes = make([]byte, 4 + seglen*16 + optlen)
+		EncodeInterfaces(bytes[4:], s.Interfaces)
+	case Composition:
+		flags |= SegTypeComposition
+		seglen = len(s.Segments)
+		bytes = make([]byte, 4 + seglen*2+ optlen)
+		for i, subseg := range s.Segments {
+			binary.BigEndian.PutUint16(bytes[4+i*2:], uint16(segidx[Fingerprint(subseg)]))
+		}
+	}
+
+	bytes[0] = flags
+	bytes[1] = uint8(seglen)
+	binary.BigEndian.PutUint16(bytes[2:], uint16(optlen))
+	return bytes
+}
+
+func RecursiveSubsegments(segment Segment) []Segment {
+	switch s := segment.(type) {
+	case Composition:
+		segments := make([]Segment, 0)
+		for _, segment := range s.Segments {
+			segments = append(segments, RecursiveSubsegments(segment)...)
+			segments = append(segments, segment)
+		}
+		return segments
+	}
+	return []Segment{}
 }
 
 func EncodeInterfaces(bytes []byte, interfaces []snet.PathInterface) {

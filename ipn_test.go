@@ -57,7 +57,7 @@ func TestNegotiation1PathNoFilter(t *testing.T) {
 		t.Fatal("server segments have not right length:", len(csegs))
 	}
 	for i := 0; i < len(segments); i++ {
-		if segments[i].String() != ssegs[i].String() {
+		if segment.Fingerprint(segments[i]) != segment.Fingerprint(ssegs[i]) {
 			t.Error("server wanted:", segments[i], "got:", ssegs[i])
 		}
 	}
@@ -65,7 +65,7 @@ func TestNegotiation1PathNoFilter(t *testing.T) {
 		t.Fatal("client segments have not right length:", len(csegs))
 	}
 	for i := 0; i < len(segments); i++ {
-		if segments[i].String() != csegs[i].String() {
+		if segment.Fingerprint(segments[i]) != segment.Fingerprint(csegs[i]) {
 			t.Error("client wanted:", segments[i], "got:", csegs[i])
 		}
 	}
