@@ -6,7 +6,7 @@ for enum in n c s; do
         echo "k = $k..."
         {
             echo "hops send recv"
-            for hops in {2..22}; do
+            for hops in {2..64}; do
                 echo "$hops $(go run message_size.go $k $hops $enum)"
             done
         } > message_sizes_${k}_${enum}.data &
