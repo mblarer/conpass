@@ -13,15 +13,31 @@ import (
 	"github.com/scionproto/scion/go/lib/addr"
 )
 
+type messageSizeReader struct {
+	reader  io.Reader
+	println bool
+}
+
+func (r messageSizeReader) Read(p []byte) (n int, err error) {
+	n, err = r.reader.Read(p)
+	if r.println {
+		fmt.Println(n)
+	} else {
+		fmt.Print(n, " ")
+	}
+	return
+}
+
 type doublepipe struct {
-	*io.PipeReader
-	*io.PipeWriter
+	io.Reader
+	io.Writer
 }
 
 func main() {
 	r1, w1 := io.Pipe()
 	r2, w2 := io.Pipe()
-	p1, p2 := doublepipe{r1,w2}, doublepipe{r2,w1}
+	p1 := doublepipe{messageSizeReader{reader: r1}, w2}
+	p2 := doublepipe{messageSizeReader{reader: r2, println: true}, w1}
 
 	k, hops, enum := argsOrExit()
 
@@ -49,11 +65,10 @@ func main() {
 	}
 
 	client := ipn.Initiator{
-		SrcIA: srcIA,
-		DstIA: dstIA,
+		SrcIA:    srcIA,
+		DstIA:    dstIA,
 		Segments: segments,
-		Filter: cfilter,
-		PrintMsgSize: true,
+		Filter:   cfilter,
 	}
 	server := ipn.Responder{
 		Filter: sfilter,

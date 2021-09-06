@@ -14,7 +14,7 @@ type Responder struct {
 }
 
 func (agent Responder) NegotiateOver(stream io.ReadWriter) ([]segment.Segment, error) {
-	recvbuffer := make([]byte, 128*1024)
+	recvbuffer := make([]byte, 1<<20) // 1 MiB buffer
 	_, err := stream.Read(recvbuffer)
 	if err != nil {
 		return nil, err
