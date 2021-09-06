@@ -34,12 +34,12 @@ type doublepipe struct {
 }
 
 func main() {
+	k, hops, enum := argsOrExit()
+
 	r1, w1 := io.Pipe()
 	r2, w2 := io.Pipe()
 	p1 := doublepipe{messageSizeReader{reader: r1}, w2}
 	p2 := doublepipe{messageSizeReader{reader: r2, println: true}, w1}
-
-	k, hops, enum := argsOrExit()
 
 	srcIA, _ := addr.IAFromString("1-ffaa:0:1")
 	core1, _ := addr.IAFromString("1-ffaa:0:1000")
