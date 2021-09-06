@@ -11,7 +11,7 @@ for enum in n c s; do
             for hops in {2..64}; do
                 echo "$hops $(go run message_size.go $k $hops $enum)"
             done
-        } > message_sizes_${k}_${enum}.data &
+        } > data/message_sizes_${k}_${enum} &
     done
 done
 wait
