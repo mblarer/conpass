@@ -1,5 +1,7 @@
 #!/bin/bash
 
+cd "$(dirname "$0")"
+
 for enum in n c s; do
     echo "enum = $enum..."
     for k in 05 10 20; do
