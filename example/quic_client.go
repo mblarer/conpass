@@ -15,8 +15,8 @@ import (
 	"github.com/mblarer/scion-ipn/segment"
 	"github.com/netsec-ethz/scion-apps/pkg/appnet"
 	"github.com/scionproto/scion/go/lib/addr"
-	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/pathpol"
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 const (

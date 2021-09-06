@@ -37,7 +37,7 @@ func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, []Segment, addr
 		switch segtype {
 		case SegTypeLiteral:
 			newsegs[i] = FromInterfaces(DecodeInterfaces(bytes[4:], seglen)...)
-			bytes = bytes[4 + seglen * 16 + optlen:]
+			bytes = bytes[4+seglen*16+optlen:]
 		case SegTypeComposition:
 			subsegs := make([]Segment, seglen)
 			for j := 0; j < seglen; j++ {
@@ -53,7 +53,7 @@ func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, []Segment, addr
 				}
 			}
 			newsegs[i] = FromSegments(subsegs...)
-			bytes = bytes[4 + seglen * 2 + optlen:]
+			bytes = bytes[4+seglen*2+optlen:]
 		}
 		if accepted {
 			accsegs = append(accsegs, newsegs[i])
@@ -138,12 +138,12 @@ func EncodeSegment(segment Segment, accepted bool, segidx map[string]int) []byte
 	case Literal:
 		flags |= SegTypeLiteral
 		seglen = len(s.Interfaces)
-		bytes = make([]byte, 4 + seglen*16 + optlen)
+		bytes = make([]byte, 4+seglen*16+optlen)
 		EncodeInterfaces(bytes[4:], s.Interfaces)
 	case Composition:
 		flags |= SegTypeComposition
 		seglen = len(s.Segments)
-		bytes = make([]byte, 4 + seglen*2+ optlen)
+		bytes = make([]byte, 4+seglen*2+optlen)
 		for i, subseg := range s.Segments {
 			binary.BigEndian.PutUint16(bytes[4+i*2:], uint16(segidx[Fingerprint(subseg)]))
 		}

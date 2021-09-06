@@ -17,7 +17,7 @@ type doublepipe struct {
 func TestNegotiation1PathNoFilter(t *testing.T) {
 	r1, w1 := io.Pipe()
 	r2, w2 := io.Pipe()
-	p1, p2 := doublepipe{r1,w2}, doublepipe{r2,w1}
+	p1, p2 := doublepipe{r1, w2}, doublepipe{r2, w1}
 
 	segments := []segment.Segment{
 		segment.FromString("19-ffaa:0:1303 1>1 19-ffaa:0:1302"),
@@ -29,10 +29,10 @@ func TestNegotiation1PathNoFilter(t *testing.T) {
 	dstIA, _ := addr.IAFromString("17-ffaa:0:1107")
 
 	client := Initiator{
-		SrcIA: srcIA,
-		DstIA: dstIA,
+		SrcIA:    srcIA,
+		DstIA:    dstIA,
 		Segments: segments,
-		Filter: filter.FromFilters(),
+		Filter:   filter.FromFilters(),
 	}
 	server := Responder{
 		Filter: filter.FromFilters(),
