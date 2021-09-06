@@ -16,7 +16,7 @@ func SplitPaths(paths []snet.Path) ([]Segment, error) {
 			return nil, err
 		}
 		for _, segment := range currsegs {
-			fprint := Fingerprint(segment)
+			fprint := segment.Fingerprint()
 			if !alreadyseen[fprint] {
 				allsegs = append(allsegs, segment)
 				alreadyseen[fprint] = true

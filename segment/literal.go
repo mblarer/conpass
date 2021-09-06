@@ -13,7 +13,14 @@ import (
 // FromInterfaces creates a new Segment from a sequence of interfaces. The
 // interface slice is copied to prevent problems with shared slices.
 func FromInterfaces(interfaces ...snet.PathInterface) Segment {
-	return Literal{append([]snet.PathInterface(nil), interfaces...)}
+	var sb strings.Builder
+	for _, iface := range interfaces {
+		sb.WriteString(fmt.Sprintf(" %s#%d ", iface.IA, iface.ID))
+	}
+	return Literal{
+		Interfaces:  append([]snet.PathInterface(nil), interfaces...),
+		fingerprint: sb.String(),
+	}
 }
 
 // FromString creates a new Segment from its string representation. This
@@ -34,6 +41,7 @@ func FromString(segstr string) Segment {
 		}
 	}
 	interfaces := make([]snet.PathInterface, length)
+	var sb strings.Builder
 	for i := 0; i < length; i++ {
 		ia, err := addr.IAFromString(iastrs[i])
 		if err != nil {
@@ -44,13 +52,15 @@ func FromString(segstr string) Segment {
 			panic(err)
 		}
 		interfaces[i] = snet.PathInterface{ID: common.IFIDType(id), IA: ia}
+		sb.WriteString(fmt.Sprintf(" %s#%d ", ia, common.IFIDType(id)))
 	}
-	return Literal{interfaces}
+	return Literal{Interfaces: interfaces, fingerprint: sb.String()}
 }
 
 // Literal implements the Segment interface.
 type Literal struct {
-	Interfaces []snet.PathInterface
+	Interfaces  []snet.PathInterface
+	fingerprint string
 }
 
 func (l Literal) PathInterfaces() []snet.PathInterface {
@@ -63,6 +73,10 @@ func (l Literal) SrcIA() addr.IA {
 
 func (l Literal) DstIA() addr.IA {
 	return l.Interfaces[len(l.Interfaces)-1].IA
+}
+
+func (l Literal) Fingerprint() string {
+	return l.fingerprint
 }
 
 func (l Literal) String() string {

@@ -85,7 +85,7 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 
 	segidx := make(map[string]int)
 	for idx, seg := range oldsegs {
-		segidx[Fingerprint(seg)] = idx
+		segidx[seg.Fingerprint()] = idx
 	}
 	currentIdx := len(oldsegs)
 	sentsegs := make([]Segment, 0)
@@ -94,7 +94,7 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 		// encode (unaccepted) subsegments
 		subsegs := RecursiveSubsegments(newseg)
 		for _, subseg := range subsegs {
-			fprint := Fingerprint(subseg)
+			fprint := subseg.Fingerprint()
 			if _, ok := segidx[fprint]; !ok { // not seen before
 				segidx[fprint] = currentIdx
 				currentIdx++
@@ -104,7 +104,7 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 			}
 		}
 		// encode (accepted) segment
-		fprint := Fingerprint(newseg)
+		fprint := newseg.Fingerprint()
 		if idx, ok := segidx[fprint]; !ok { // not seen before
 			segidx[fprint] = currentIdx
 			currentIdx++
@@ -145,7 +145,7 @@ func EncodeSegment(segment Segment, accepted bool, segidx map[string]int) []byte
 		seglen = len(s.Segments)
 		bytes = make([]byte, 4+seglen*2+optlen)
 		for i, subseg := range s.Segments {
-			binary.BigEndian.PutUint16(bytes[4+i*2:], uint16(segidx[Fingerprint(subseg)]))
+			binary.BigEndian.PutUint16(bytes[4+i*2:], uint16(segidx[subseg.Fingerprint()]))
 		}
 	}
 

@@ -110,7 +110,7 @@ func runClient() error {
 	// This is currently O(n*n), we can do it in O(n)
 	for _, path := range paths {
 		for _, seg := range segments {
-			if string(snet.Fingerprint(path)) == segment.Fingerprint(seg) {
+			if string(snet.Fingerprint(path)) == segment.Hash(seg) {
 				newpaths = append(newpaths, path)
 			}
 		}

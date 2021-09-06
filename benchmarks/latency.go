@@ -22,12 +22,14 @@ type doublepipe struct {
 }
 
 func main() {
-	k, hops, enum := argsOrExit()
+	k, hops, enum, prof := argsOrExit()
 
-	f, _ := os.Create("cpu.prof")
-	defer f.Close()
-	_ = pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	if prof {
+		f, _ := os.Create("cpu.prof")
+		defer f.Close()
+		_ = pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
 	result := testing.Benchmark(func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -74,16 +76,18 @@ func main() {
 		}
 	})
 
-	f, _ = os.Create("mem.prof")
-	defer f.Close()
-	runtime.GC()
-	_ = pprof.WriteHeapProfile(f)
+	if prof {
+		f, _ := os.Create("mem.prof")
+		defer f.Close()
+		runtime.GC()
+		_ = pprof.WriteHeapProfile(f)
+	}
 
 	fmt.Println(result.N, int64(result.T))
 }
 
-func argsOrExit() (int, int, string) {
-	if len(os.Args) != 4 {
+func argsOrExit() (int, int, string, bool) {
+	if len(os.Args) != 5 {
 		usageAndExit()
 	}
 	k, err := strconv.Atoi(os.Args[1])
@@ -98,10 +102,14 @@ func argsOrExit() (int, int, string) {
 	if enum != "n" && enum != "c" && enum != "s" {
 		usageAndExit()
 	}
-	return k, hops, enum
+	prof := os.Args[4]
+	if prof != "y" && prof != "n" {
+		usageAndExit()
+	}
+	return k, hops, enum, prof == "y"
 }
 
 func usageAndExit() {
-	fmt.Println("wrong command line arguments:", os.Args[0], "k:int hops:int n|c|s")
+	fmt.Println("wrong command line arguments:", os.Args[0], "k:<int> hops:<int> enum:n|c|s prof:y|n")
 	os.Exit(1)
 }

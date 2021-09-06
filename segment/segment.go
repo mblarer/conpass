@@ -13,5 +13,6 @@ type Segment interface {
 	PathInterfaces() []snet.PathInterface
 	SrcIA() addr.IA
 	DstIA() addr.IA
+	Fingerprint() string
 	fmt.Stringer
 }
