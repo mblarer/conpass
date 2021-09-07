@@ -51,24 +51,24 @@ func main() {
 	segments = append(segments, internal.CreateSegments(k, hops, core1, core2)...)
 	segments = append(segments, internal.CreateSegments(k, hops, core2, dstIA)...)
 
+	segset := segment.SegmentSet{Segments: segments, SrcIA: srcIA, DstIA: dstIA}
+
 	var cfilter, sfilter segment.Filter
 	switch enum {
 	case "n":
 		cfilter = filter.FromFilters()
 		sfilter = filter.FromFilters()
 	case "c":
-		cfilter = filter.SrcDstPathEnumerator(srcIA, dstIA)
+		cfilter = filter.SrcDstPathEnumerator()
 		sfilter = filter.FromFilters()
 	case "s":
 		cfilter = filter.FromFilters()
-		sfilter = filter.SrcDstPathEnumerator(srcIA, dstIA)
+		sfilter = filter.SrcDstPathEnumerator()
 	}
 
 	client := ipn.Initiator{
-		SrcIA:    srcIA,
-		DstIA:    dstIA,
-		Segments: segments,
-		Filter:   cfilter,
+		InitialSegset: segset,
+		Filter:        cfilter,
 	}
 	server := ipn.Responder{
 		Filter: sfilter,

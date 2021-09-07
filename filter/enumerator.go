@@ -1,20 +1,18 @@
 package filter
 
-import (
-	"github.com/mblarer/scion-ipn/segment"
-	"github.com/scionproto/scion/go/lib/addr"
-)
+import "github.com/mblarer/scion-ipn/segment"
 
 // PathEnumerator implements the segment.Filter interface.
-type PathEnumerator struct {
-	SrcIA, DstIA addr.IA
+type PathEnumerator struct{}
+
+func (_ PathEnumerator) Filter(segset segment.SegmentSet) segment.SegmentSet {
+	return segment.SegmentSet{
+		Segments: segment.SrcDstPaths(segset.Segments, segset.SrcIA, segset.DstIA),
+		SrcIA:    segset.SrcIA,
+		DstIA:    segset.DstIA,
+	}
 }
 
-func (pe PathEnumerator) Filter(segset segment.SegmentSet) segment.SegmentSet {
-	paths := segment.SrcDstPaths(segset.Segments, pe.SrcIA, pe.DstIA)
-	return segment.SegmentSet{Segments: paths}
-}
-
-func SrcDstPathEnumerator(srcIA, dstIA addr.IA) segment.Filter {
-	return PathEnumerator{SrcIA: srcIA, DstIA: dstIA}
+func SrcDstPathEnumerator() segment.Filter {
+	return PathEnumerator{}
 }

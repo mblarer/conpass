@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"flag"
+	"fmt"
 	"log"
 	"math/big"
 	"os"
@@ -16,12 +17,24 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/mblarer/scion-ipn"
 	"github.com/mblarer/scion-ipn/filter"
+	"github.com/mblarer/scion-ipn/segment"
 	"github.com/scionproto/scion/go/lib/pathpol"
 )
 
-const address = "192.168.1.2:1234"
+const (
+	defaultAclFilepath     = ""
+	defaultSeqFilepath     = ""
+	defaultNegotiationHost = "192.168.1.2"
+	defaultNegotiationPort = "1234"
+)
 
-var aclFilepath string
+var (
+	aclFilepath     string
+	seqFilepath     string
+	targetIA        string
+	negotiationHost string
+	negotiationPort string
+)
 
 func main() {
 	err := runServer()
@@ -31,14 +44,28 @@ func main() {
 }
 
 func runServer() error {
-	flag.StringVar(&aclFilepath, "acl", "", "path to ACL definition file (JSON)")
-	flag.Parse()
+	parseArgs()
+	address := fmt.Sprintf("%s:%s", negotiationHost, negotiationPort)
 	acl, err := createACL()
 	if err != nil {
-		return err
+		fmt.Println("could not create ACL policy:", err.Error())
+	}
+	seq, err := createSequence()
+	if err != nil {
+		fmt.Println("could not create sequence policy:", err.Error())
+	}
+	filters := make([]segment.Filter, 0)
+	if acl != nil {
+		aclFilter := filter.FromACL(*acl)
+		filters = append(filters, aclFilter)
+	}
+	if seq != nil {
+		pathEnumerator := filter.SrcDstPathEnumerator()
+		sequenceFilter := filter.FromSequence(*seq)
+		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
 	agent := ipn.Responder{
-		Filter:  filter.FromACL(*acl),
+		Filter:  filter.FromFilters(filters...),
 		Verbose: true,
 	}
 	tlsConfig, err := generateTLSConfig()
@@ -67,6 +94,14 @@ func runServer() error {
 	return nil
 }
 
+func parseArgs() {
+	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath, "path to ACL definition file (JSON)")
+	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath, "path to sequence definition file (JSON)")
+	flag.StringVar(&negotiationHost, "host", defaultNegotiationHost, "IP address to bind to")
+	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number to listen on")
+	flag.Parse()
+}
+
 func createACL() (*pathpol.ACL, error) {
 	acl := new(pathpol.ACL)
 	jsonACL, err := os.ReadFile(aclFilepath)
@@ -78,6 +113,19 @@ func createACL() (*pathpol.ACL, error) {
 		return nil, err
 	}
 	return acl, nil
+}
+
+func createSequence() (*pathpol.Sequence, error) {
+	seq := new(pathpol.Sequence)
+	jsonSeq, err := os.ReadFile(seqFilepath)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonSeq, &seq)
+	if err != nil {
+		return nil, err
+	}
+	return seq, nil
 }
 
 func generateTLSConfig() (*tls.Config, error) {

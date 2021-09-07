@@ -14,7 +14,11 @@ func (pf PredicateFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
 			filtered = append(filtered, segment)
 		}
 	}
-	return segment.SegmentSet{Segments: filtered}
+	return segment.SegmentSet{
+		Segments: filtered,
+		SrcIA:    segset.SrcIA,
+		DstIA:    segset.DstIA,
+	}
 }
 
 func FromPredicate(accept func(segment.Segment) bool) segment.Filter {

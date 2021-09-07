@@ -1,6 +1,9 @@
 package segment
 
+import "github.com/scionproto/scion/go/lib/addr"
+
 type SegmentSet struct {
 	Segments []Segment
-	// TODO: add SrcIA, DstIA
+	SrcIA    addr.IA
+	DstIA    addr.IA
 }

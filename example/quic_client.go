@@ -77,6 +77,11 @@ func runClient() error {
 	for _, segment := range segments {
 		fmt.Println(" ", segment)
 	}
+	segset := segment.SegmentSet{
+		Segments: segments,
+		SrcIA:    srcIA,
+		DstIA:    dstIA,
+	}
 	acl, err := createACL()
 	if err != nil {
 		fmt.Println("could not create ACL policy:", err.Error())
@@ -91,18 +96,16 @@ func runClient() error {
 		filters = append(filters, aclFilter)
 	}
 	if seq != nil {
-		pathEnumerator := filter.SrcDstPathEnumerator(srcIA, dstIA)
+		pathEnumerator := filter.SrcDstPathEnumerator()
 		sequenceFilter := filter.FromSequence(*seq)
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
 	agent := ipn.Initiator{
-		SrcIA:         srcIA,
-		DstIA:         dstIA,
-		InitialSegset: segment.SegmentSet{Segments: segments},
+		InitialSegset: segset,
 		Filter:        filter.FromFilters(filters...),
 		Verbose:       true,
 	}
-	segset, err := agent.NegotiateOver(stream)
+	segset, err = agent.NegotiateOver(stream)
 	if err != nil {
 		return err
 	}

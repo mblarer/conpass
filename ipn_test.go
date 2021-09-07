@@ -25,14 +25,16 @@ func TestNegotiation1PathNoFilter(t *testing.T) {
 		segment.FromString("17-ffaa:0:1108 2>1 17-ffaa:0:1102 2>1 17-ffaa:0:1107"),
 	}
 
-	segset := segment.SegmentSet{Segments: segments}
-
 	srcIA, _ := addr.IAFromString("19-ffaa:0:1303")
 	dstIA, _ := addr.IAFromString("17-ffaa:0:1107")
 
+	segset := segment.SegmentSet{
+		Segments: segments,
+		SrcIA:    srcIA,
+		DstIA:    dstIA,
+	}
+
 	client := Initiator{
-		SrcIA:         srcIA,
-		DstIA:         dstIA,
 		InitialSegset: segset,
 		Filter:        filter.FromFilters(),
 	}

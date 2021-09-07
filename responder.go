@@ -17,11 +17,11 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, 
 	recvbuffer := make([]byte, 1<<20) // 1 MiB buffer
 	_, err := stream.Read(recvbuffer)
 	if err != nil {
-		return segment.SegmentSet{nil}, err
+		return segment.SegmentSet{}, err
 	}
 	segsin, accsegs, srcIA, dstIA, err := segment.DecodeSegments(recvbuffer, []segment.Segment{})
 	if err != nil {
-		return segment.SegmentSet{nil}, err
+		return segment.SegmentSet{}, err
 	}
 	if agent.Verbose {
 		log.Println("request contains", len(segsin), "segments:")
@@ -29,7 +29,11 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, 
 			fmt.Println(" ", segment)
 		}
 	}
-	segsetout := agent.Filter.Filter(segment.SegmentSet{Segments: accsegs})
+	segsetout := agent.Filter.Filter(segment.SegmentSet{
+		Segments: accsegs,
+		SrcIA:    srcIA,
+		DstIA:    dstIA,
+	})
 	if agent.Verbose {
 		log.Println("responding with", len(segsetout.Segments), "segments:")
 		for _, segment := range segsetout.Segments {
@@ -39,7 +43,7 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, 
 	sendbuffer, _ := segment.EncodeSegments(segsetout.Segments, segsin, srcIA, dstIA)
 	_, err = stream.Write(sendbuffer)
 	if err != nil {
-		return segment.SegmentSet{nil}, err
+		return segment.SegmentSet{}, err
 	}
 	return segsetout, nil
 }
