@@ -12,16 +12,13 @@ type SequenceFilter struct {
 	Sequence pathpol.Sequence
 }
 
-func (sf SequenceFilter) Filter(segments []segment.Segment) []segment.Segment {
+func (sf SequenceFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
 	return FromPredicate(func(segment segment.Segment) bool {
-		// This implementation can be optimized quite a bit. If segment is a
-		// segment composition, then every subsegment should only be evaluated
-		// once and for all.
 		path := path.InterfacePath{segment.PathInterfaces()}
 		result := sf.Sequence.Eval([]snet.Path{path})
 		accept := len(result) == 1
 		return accept
-	}).Filter(segments)
+	}).Filter(segset)
 }
 
 func FromSequence(sequence pathpol.Sequence) segment.Filter {

@@ -7,11 +7,11 @@ type FilterComposition struct {
 	Filters []segment.Filter
 }
 
-func (fc FilterComposition) Filter(segments []segment.Segment) []segment.Segment {
+func (fc FilterComposition) Filter(segset segment.SegmentSet) segment.SegmentSet {
 	for _, filter := range fc.Filters {
-		segments = filter.Filter(segments)
+		segset = filter.Filter(segset)
 	}
-	return segments
+	return segset
 }
 
 func FromFilters(filters ...segment.Filter) segment.Filter {

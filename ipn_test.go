@@ -25,33 +25,38 @@ func TestNegotiation1PathNoFilter(t *testing.T) {
 		segment.FromString("17-ffaa:0:1108 2>1 17-ffaa:0:1102 2>1 17-ffaa:0:1107"),
 	}
 
+	segset := segment.SegmentSet{Segments: segments}
+
 	srcIA, _ := addr.IAFromString("19-ffaa:0:1303")
 	dstIA, _ := addr.IAFromString("17-ffaa:0:1107")
 
 	client := Initiator{
-		SrcIA:    srcIA,
-		DstIA:    dstIA,
-		Segments: segments,
-		Filter:   filter.FromFilters(),
+		SrcIA:         srcIA,
+		DstIA:         dstIA,
+		InitialSegset: segset,
+		Filter:        filter.FromFilters(),
 	}
 	server := Responder{
 		Filter: filter.FromFilters(),
 	}
 
-	channel := make(chan []segment.Segment, 1)
-	go func(c chan []segment.Segment, t *testing.T) {
-		ssegs, err := server.NegotiateOver(p1)
+	channel := make(chan segment.SegmentSet, 1)
+	go func(c chan segment.SegmentSet, t *testing.T) {
+		ssegset, err := server.NegotiateOver(p1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		c <- ssegs
+		c <- ssegset
 	}(channel, t)
 
-	csegs, err := client.NegotiateOver(p2)
+	csegset, err := client.NegotiateOver(p2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ssegs := <-channel
+	ssegset := <-channel
+
+	csegs := csegset.Segments
+	ssegs := ssegset.Segments
 
 	if len(segments) != len(ssegs) {
 		t.Fatal("server segments have not right length:", len(csegs))

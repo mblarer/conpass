@@ -1,5 +1,5 @@
 package segment
 
 type Filter interface {
-	Filter([]Segment) []Segment
+	Filter(SegmentSet) SegmentSet
 }

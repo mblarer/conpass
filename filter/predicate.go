@@ -7,14 +7,14 @@ type PredicateFilter struct {
 	Accept func(segment.Segment) bool
 }
 
-func (pf PredicateFilter) Filter(segments []segment.Segment) []segment.Segment {
+func (pf PredicateFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
 	filtered := make([]segment.Segment, 0)
-	for _, segment := range segments {
+	for _, segment := range segset.Segments {
 		if pf.Accept(segment) {
 			filtered = append(filtered, segment)
 		}
 	}
-	return filtered
+	return segment.SegmentSet{Segments: filtered}
 }
 
 func FromPredicate(accept func(segment.Segment) bool) segment.Filter {

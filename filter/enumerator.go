@@ -10,8 +10,9 @@ type PathEnumerator struct {
 	SrcIA, DstIA addr.IA
 }
 
-func (pe PathEnumerator) Filter(segments []segment.Segment) []segment.Segment {
-	return segment.SrcDstPaths(segments, pe.SrcIA, pe.DstIA)
+func (pe PathEnumerator) Filter(segset segment.SegmentSet) segment.SegmentSet {
+	paths := segment.SrcDstPaths(segset.Segments, pe.SrcIA, pe.DstIA)
+	return segment.SegmentSet{Segments: paths}
 }
 
 func SrcDstPathEnumerator(srcIA, dstIA addr.IA) segment.Filter {

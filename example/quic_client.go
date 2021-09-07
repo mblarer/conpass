@@ -96,20 +96,20 @@ func runClient() error {
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
 	agent := ipn.Initiator{
-		SrcIA:    srcIA,
-		DstIA:    dstIA,
-		Segments: segments,
-		Filter:   filter.FromFilters(filters...),
-		Verbose:  true,
+		SrcIA:         srcIA,
+		DstIA:         dstIA,
+		InitialSegset: segment.SegmentSet{Segments: segments},
+		Filter:        filter.FromFilters(filters...),
+		Verbose:       true,
 	}
-	segments, err = agent.NegotiateOver(stream)
+	segset, err := agent.NegotiateOver(stream)
 	if err != nil {
 		return err
 	}
 	newpaths := make([]snet.Path, 0)
 	// This is currently O(n*n), we can do it in O(n)
 	for _, path := range paths {
-		for _, seg := range segments {
+		for _, seg := range segset.Segments {
 			if string(snet.Fingerprint(path)) == segment.Hash(seg) {
 				newpaths = append(newpaths, path)
 			}
