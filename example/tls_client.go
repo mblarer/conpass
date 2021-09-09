@@ -104,12 +104,14 @@ func runClient() error {
 		return err
 	}
 	newpaths := make([]snet.Path, 0)
-	// This is currently O(n*n), we can do it in O(n)
+	srcDstPaths := segment.SrcDstPaths(segset.Segments, srcIA, dstIA)
+	accepted := make(map[string]bool)
+	for _, sdpath := range srcDstPaths {
+		accepted[segment.Hash(sdpath)] = true
+	}
 	for _, path := range paths {
-		for _, seg := range segset.Segments {
-			if string(snet.Fingerprint(path)) == segment.Hash(seg) {
-				newpaths = append(newpaths, path)
-			}
+		if accepted[string(snet.Fingerprint(path))] {
+			newpaths = append(newpaths, path)
 		}
 	}
 	fmt.Println()
