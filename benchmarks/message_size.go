@@ -14,17 +14,13 @@ import (
 )
 
 type messageSizeReader struct {
-	reader  io.Reader
-	println bool
+	size   int
+	reader io.Reader
 }
 
-func (r messageSizeReader) Read(p []byte) (n int, err error) {
+func (r *messageSizeReader) Read(p []byte) (n int, err error) {
 	n, err = r.reader.Read(p)
-	if r.println {
-		fmt.Println(n)
-	} else {
-		fmt.Print(n, " ")
-	}
+	r.size += n
 	return
 }
 
@@ -38,8 +34,10 @@ func main() {
 
 	r1, w1 := io.Pipe()
 	r2, w2 := io.Pipe()
-	p1 := doublepipe{messageSizeReader{reader: r1}, w2}
-	p2 := doublepipe{messageSizeReader{reader: r2, println: true}, w1}
+	msr1 := &messageSizeReader{reader: r1}
+	msr2 := &messageSizeReader{reader: r2}
+	p1 := doublepipe{msr1, w2}
+	p2 := doublepipe{msr2, w1}
 
 	srcIA, _ := addr.IAFromString("1-ffaa:0:1")
 	core1, _ := addr.IAFromString("1-ffaa:0:1000")
@@ -76,6 +74,8 @@ func main() {
 
 	go func() { _, _ = server.NegotiateOver(p1) }()
 	_, _ = client.NegotiateOver(p2)
+
+	fmt.Println(msr1.size, msr2.size)
 }
 
 func argsOrExit() (int, int, string) {
