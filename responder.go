@@ -1,6 +1,7 @@
 package ipn
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -14,9 +15,17 @@ type Responder struct {
 }
 
 func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, error) {
+	lenbuf := make([]byte, 4)
+	_, err := stream.Read(lenbuf)
+	msglen := int(binary.BigEndian.Uint32(lenbuf))
 	recvbuffer := make([]byte, 1<<20) // 1 MiB buffer
-	_, err := stream.Read(recvbuffer)
-	if err != nil {
+	read := 0
+	for err == nil && read < msglen {
+		n, e := stream.Read(recvbuffer[read:])
+		read += n
+		err = e
+	}
+	if err != nil && err != io.EOF {
 		return segment.SegmentSet{}, err
 	}
 	segsin, accsegs, srcIA, dstIA, err := segment.DecodeSegments(recvbuffer, []segment.Segment{})
@@ -41,6 +50,11 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, 
 		}
 	}
 	sendbuffer, _ := segment.EncodeSegments(segsetout.Segments, segsin, srcIA, dstIA)
+	binary.BigEndian.PutUint32(lenbuf, uint32(len(sendbuffer)))
+	_, err = stream.Write(lenbuf)
+	if err != nil {
+		return segment.SegmentSet{}, err
+	}
 	_, err = stream.Write(sendbuffer)
 	if err != nil {
 		return segment.SegmentSet{}, err
