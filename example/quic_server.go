@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"os"
@@ -24,28 +25,31 @@ import (
 const (
 	defaultAclFilepath     = ""
 	defaultSeqFilepath     = ""
-	defaultNegotiationHost = "192.168.1.2"
-	defaultNegotiationPort = "1234"
+	defaultHost            = "192.168.1.2"
+	defaultNegotiationPort = "50000"
+	defaultPingPort        = "50001"
 )
 
 var (
 	aclFilepath     string
 	seqFilepath     string
 	targetIA        string
-	negotiationHost string
+	host            string
 	negotiationPort string
+	pingPort        string
 )
 
 func main() {
-	err := runServer()
+	parseArgs()
+	go runPingServer()
+	err := runNegotiationServer()
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func runServer() error {
-	parseArgs()
-	address := fmt.Sprintf("%s:%s", negotiationHost, negotiationPort)
+func runNegotiationServer() error {
+	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	acl, err := createACL()
 	if err != nil {
 		fmt.Println("could not create ACL policy:", err.Error())
@@ -94,11 +98,52 @@ func runServer() error {
 	return nil
 }
 
+func runPingServer() {
+	address := fmt.Sprintf("%s:%s", host, pingPort)
+	tlsConfig, err := generateTLSConfig()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	listener, err := quic.ListenAddr(address, tlsConfig, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	log.Printf("server listening at %s", address)
+	for {
+		session, err := listener.Accept(context.Background())
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		stream, err := session.AcceptStream(context.Background())
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		buffer := make([]byte, 64)
+		n, err := stream.Read(buffer)
+		if err != nil && err != io.EOF {
+			fmt.Println(err)
+			return
+		}
+		buffer = buffer[:n]
+		fmt.Println("server received:", string(buffer))
+		_, err = stream.Write([]byte("PONG"))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+}
+
 func parseArgs() {
 	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath, "path to ACL definition file (JSON)")
 	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath, "path to sequence definition file (JSON)")
-	flag.StringVar(&negotiationHost, "host", defaultNegotiationHost, "IP address to bind to")
+	flag.StringVar(&host, "host", defaultHost, "IP address to bind to")
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number to listen on")
+	flag.StringVar(&pingPort, "ping", defaultPingPort, "port number to listen on for ping")
 	flag.Parse()
 }
 

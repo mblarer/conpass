@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -23,39 +24,42 @@ const (
 	defaultAclFilepath     = ""
 	defaultSeqFilepath     = ""
 	defaultTargetIA        = "17-ffaa:1:ef4"
-	defaultNegotiationHost = "192.168.1.2"
-	defaultNegotiationPort = "1234"
+	defaultHost            = "192.168.1.2"
+	defaultNegotiationPort = "50000"
+	defaultPingPort        = "50001"
 )
 
 var (
 	aclFilepath     string
 	seqFilepath     string
 	targetIA        string
-	negotiationHost string
+	host            string
 	negotiationPort string
+	pingPort        string
 )
 
 func main() {
-	err := runClient()
+	parseArgs()
+	paths, err := runNegotiationClient()
+	err = runPingClient(paths)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func runClient() error {
-	parseArgs()
-	address := fmt.Sprintf("%s:%s", negotiationHost, negotiationPort)
+func runNegotiationClient() ([]snet.Path, error) {
+	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"scion-ipn-example"},
 	}
 	session, err := quic.DialAddr(address, tlsConfig, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	stream, err := session.OpenStreamSync(context.Background())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer stream.Close()
 
@@ -63,7 +67,7 @@ func runClient() error {
 	dstIA, _ := addr.IAFromString(targetIA)
 	paths, err := appnet.QueryPaths(dstIA)
 	if err != nil {
-		return fmt.Errorf("failed to query paths: %s", err.Error())
+		return nil, fmt.Errorf("failed to query paths: %s", err.Error())
 	}
 	log.Println("queried", len(paths), "different paths to", dstIA)
 	for _, path := range paths {
@@ -71,7 +75,7 @@ func runClient() error {
 	}
 	segments, err := segment.SplitPaths(paths)
 	if err != nil {
-		return fmt.Errorf("failed to split paths: %s", err.Error())
+		return nil, fmt.Errorf("failed to split paths: %s", err.Error())
 	}
 	log.Println("split paths into", len(segments), "different segments:")
 	for _, segment := range segments {
@@ -107,7 +111,7 @@ func runClient() error {
 	}
 	segset, err = agent.NegotiateOver(stream)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	newpaths := make([]snet.Path, 0)
 	srcDstPaths := segment.SrcDstPaths(segset.Segments, srcIA, dstIA)
@@ -125,6 +129,36 @@ func runClient() error {
 	for _, path := range newpaths {
 		fmt.Println(" ", path)
 	}
+	return newpaths, nil
+}
+
+func runPingClient(paths []snet.Path) error {
+	address := fmt.Sprintf("%s:%s", host, pingPort)
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"scion-ipn-example"},
+	}
+	session, err := quic.DialAddr(address, tlsConfig, nil)
+	if err != nil {
+		return err
+	}
+	stream, err := session.OpenStreamSync(context.Background())
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+
+	_, err = stream.Write([]byte("PING"))
+	if err != nil {
+		return err
+	}
+	buffer := make([]byte, 64)
+	n, err := stream.Read(buffer)
+	if err != nil && err != io.EOF {
+		return err
+	}
+	buffer = buffer[:n]
+	fmt.Println("client received:", string(buffer))
 	return nil
 }
 
@@ -132,8 +166,9 @@ func parseArgs() {
 	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath, "path to ACL definition file (JSON)")
 	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath, "path to sequence definition file (JSON)")
 	flag.StringVar(&targetIA, "ia", defaultTargetIA, "ISD-AS of the target host")
-	flag.StringVar(&negotiationHost, "host", defaultNegotiationHost, "IP address of the negotiation server")
+	flag.StringVar(&host, "host", defaultHost, "IP address of the negotiation server")
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number of the negotiation server")
+	flag.StringVar(&pingPort, "ping", defaultPingPort, "port number of the ping server")
 	flag.Parse()
 }
 
