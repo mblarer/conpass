@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/mblarer/scion-ipn"
@@ -27,6 +28,7 @@ const (
 	defaultHost            = "192.168.1.2"
 	defaultNegotiationPort = "50000"
 	defaultPingPort        = "50001"
+	defaultShouldNegotiate = true
 )
 
 var (
@@ -36,15 +38,30 @@ var (
 	host            string
 	negotiationPort string
 	pingPort        string
+	shouldNegotiate bool
 )
 
 func main() {
+	start := time.Now()
 	parseArgs()
-	paths, err := runNegotiationClient()
-	err = runPingClient(paths)
-	if err != nil {
-		log.Fatal(err)
+
+	if shouldNegotiate {
+		paths, err := runNegotiationClient()
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = runPingClient(paths)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		err := runPingClient(nil)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+
+	fmt.Println(time.Since(start))
 }
 
 func runNegotiationClient() ([]snet.Path, error) {
@@ -169,6 +186,7 @@ func parseArgs() {
 	flag.StringVar(&host, "host", defaultHost, "IP address of the negotiation server")
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number of the negotiation server")
 	flag.StringVar(&pingPort, "ping", defaultPingPort, "port number of the ping server")
+	flag.BoolVar(&shouldNegotiate, "neg", defaultShouldNegotiate, "whether client should negotiate")
 	flag.Parse()
 }
 
