@@ -61,7 +61,7 @@ func main() {
 		}
 	}
 
-	fmt.Println(time.Since(start))
+	fmt.Println(int64(time.Since(start)))
 }
 
 func runNegotiationClient() ([]snet.Path, error) {
