@@ -48,8 +48,8 @@ var (
 
 func main() {
 	defer func() {
-		if r := recover(); r != nil {
-			log.Fatal("client error:", r)
+		if err := recover(); err != nil {
+			log.Fatal("client error: ", err)
 		}
 	}()
 
