@@ -143,7 +143,6 @@ func runNegotiationServer() {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	listener := listen(address)
 	log.Printf("server listening at %s", address)
-
 	acl := createACL()
 	seq := createSequence()
 	filters := make([]segment.Filter, 0)
@@ -174,7 +173,6 @@ func runPingServer() {
 	address := fmt.Sprintf("%s:%s", host, pingPort)
 	listener := listen(address)
 	log.Printf("server listening at %s", address)
-
 	for {
 		stream := listener.accept()
 		buffer := make([]byte, 64)

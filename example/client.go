@@ -47,12 +47,7 @@ var (
 )
 
 func main() {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Fatal("client error: ", err)
-		}
-	}()
-
+	defer unpanic()
 	start := time.Now()
 	parseArgs()
 	if shouldNegotiate {
@@ -62,6 +57,14 @@ func main() {
 		runPingClient(nil)
 	}
 	fmt.Println(int64(time.Since(start)))
+}
+
+func unpanic() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Fatal("client error: ", err)
+		}
+	}()
 }
 
 func parseArgs() {
@@ -88,7 +91,6 @@ func runNegotiationClient() []snet.Path {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	stream := dial(address)
 	defer stream.Close()
-
 	srcIA := (*appnet.DefNetwork()).IA
 	dstIA, _ := addr.IAFromString(targetIA)
 	paths, err := appnet.QueryPaths(dstIA)
