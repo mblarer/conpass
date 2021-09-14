@@ -55,23 +55,12 @@ func main() {
 
 	start := time.Now()
 	parseArgs()
-
 	if shouldNegotiate {
-		paths, err := runNegotiationClient()
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = runPingClient(paths)
-		if err != nil {
-			log.Fatal(err)
-		}
+		paths := runNegotiationClient()
+		runPingClient(paths)
 	} else {
-		err := runPingClient(nil)
-		if err != nil {
-			log.Fatal(err)
-		}
+		runPingClient(nil)
 	}
-
 	fmt.Println(int64(time.Since(start)))
 }
 
@@ -95,7 +84,7 @@ func parseArgs() {
 	flag.Parse()
 }
 
-func runNegotiationClient() ([]snet.Path, error) {
+func runNegotiationClient() []snet.Path {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	stream := dial(address)
 	defer stream.Close()
@@ -104,7 +93,7 @@ func runNegotiationClient() ([]snet.Path, error) {
 	dstIA, _ := addr.IAFromString(targetIA)
 	paths, err := appnet.QueryPaths(dstIA)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query paths: %s", err.Error())
+		panic(err)
 	}
 	log.Println("queried", len(paths), "different paths to", dstIA)
 	for _, path := range paths {
@@ -112,7 +101,7 @@ func runNegotiationClient() ([]snet.Path, error) {
 	}
 	segments, err := segment.SplitPaths(paths)
 	if err != nil {
-		return nil, fmt.Errorf("failed to split paths: %s", err.Error())
+		panic(err)
 	}
 	log.Println("split paths into", len(segments), "different segments:")
 	for _, segment := range segments {
@@ -123,14 +112,8 @@ func runNegotiationClient() ([]snet.Path, error) {
 		SrcIA:    srcIA,
 		DstIA:    dstIA,
 	}
-	acl, err := createACL()
-	if err != nil {
-		fmt.Println("could not create ACL policy:", err.Error())
-	}
-	seq, err := createSequence()
-	if err != nil {
-		fmt.Println("could not create sequence policy:", err.Error())
-	}
+	acl := createACL()
+	seq := createSequence()
 	filters := make([]segment.Filter, 0)
 	if acl != nil {
 		aclFilter := filter.FromACL(*acl)
@@ -148,7 +131,7 @@ func runNegotiationClient() ([]snet.Path, error) {
 	}
 	segset, err = agent.NegotiateOver(stream)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	newpaths := make([]snet.Path, 0)
 	srcDstPaths := segment.SrcDstPaths(segset.Segments, srcIA, dstIA)
@@ -166,7 +149,7 @@ func runNegotiationClient() ([]snet.Path, error) {
 	for _, path := range newpaths {
 		fmt.Println(" ", path)
 	}
-	return newpaths, nil
+	return newpaths
 }
 
 func dial(address string) io.ReadWriteCloser {
@@ -203,46 +186,51 @@ func tlsConn(address string, tlsConfig *tls.Config) *tls.Conn {
 	return conn
 }
 
-func runPingClient(paths []snet.Path) error {
+func runPingClient(paths []snet.Path) {
 	address := fmt.Sprintf("%s:%s", host, pingPort)
 	stream := dial(address)
 	defer stream.Close()
-	_, err := conn.Write([]byte("PING"))
+	_, err := stream.Write([]byte("PING"))
 	if err != nil {
-		return err
+		panic(err)
 	}
 	buffer := make([]byte, 64)
 	n, err := stream.Read(buffer)
 	if err != nil && err != io.EOF {
-		return err
+		panic(err)
 	}
 	buffer = buffer[:n]
 	fmt.Println("client received:", string(buffer))
-	return nil
 }
 
-func createACL() (*pathpol.ACL, error) {
+func createACL() *pathpol.ACL {
+	if aclFilepath == "" {
+		return nil
+	}
 	acl := new(pathpol.ACL)
 	jsonACL, err := os.ReadFile(aclFilepath)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	err = json.Unmarshal(jsonACL, &acl)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return acl, nil
+	return acl
 }
 
-func createSequence() (*pathpol.Sequence, error) {
+func createSequence() *pathpol.Sequence {
+	if seqFilepath == "" {
+		return nil
+	}
 	seq := new(pathpol.Sequence)
 	jsonSeq, err := os.ReadFile(seqFilepath)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	err = json.Unmarshal(jsonSeq, &seq)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return seq, nil
+	return seq
 }

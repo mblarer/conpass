@@ -46,17 +46,18 @@ var (
 )
 
 func main() {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Fatal("server error: ", err)
-		}
-	}()
-
+	defer unpanic()
 	parseArgs()
-	go runPingServer()
-	err := runNegotiationServer()
-	if err != nil {
-		log.Fatal(err)
+	go func() {
+		defer unpanic()
+		runPingServer()
+	}()
+	runNegotiationServer()
+}
+
+func unpanic() {
+	if err := recover(); err != nil {
+		log.Fatal("server error: ", err)
 	}
 }
 
@@ -112,10 +113,7 @@ func tlsAccept(listener net.Listener) net.Conn {
 }
 
 func listen(address string) transportListener {
-	tlsConfig, err := generateTLSConfig()
-	if err != nil {
-		panic(err)
-	}
+	tlsConfig := generateTLSConfig()
 	switch transport {
 	case quicTransport:
 		return transportListener{quicListener: quicListener(address, tlsConfig)}
@@ -141,19 +139,13 @@ func tlsListener(address string, tlsConfig *tls.Config) net.Listener {
 	return listener
 }
 
-func runNegotiationServer() error {
+func runNegotiationServer() {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	listener := listen(address)
 	log.Printf("server listening at %s", address)
 
-	acl, err := createACL()
-	if err != nil {
-		fmt.Println("could not create ACL policy:", err.Error())
-	}
-	seq, err := createSequence()
-	if err != nil {
-		fmt.Println("could not create sequence policy:", err.Error())
-	}
+	acl := createACL()
+	seq := createSequence()
 	filters := make([]segment.Filter, 0)
 	if acl != nil {
 		aclFilter := filter.FromACL(*acl)
@@ -170,12 +162,12 @@ func runNegotiationServer() error {
 	}
 	for {
 		stream := listener.accept()
-		_, err = agent.NegotiateOver(stream)
+		_, err := agent.NegotiateOver(stream)
 		if err != nil {
-			return err
+			// TODO: improve error recovery
+			panic(err)
 		}
 	}
-	return nil
 }
 
 func runPingServer() {
@@ -188,56 +180,60 @@ func runPingServer() {
 		buffer := make([]byte, 64)
 		n, err := stream.Read(buffer)
 		if err != nil && err != io.EOF {
-			fmt.Println(err)
-			return
+			panic(err)
 		}
 		buffer = buffer[:n]
 		fmt.Println("server received:", string(buffer))
 		_, err = stream.Write([]byte("PONG"))
 		if err != nil {
-			fmt.Println(err)
-			return
+			panic(err)
 		}
 	}
 }
 
-func createACL() (*pathpol.ACL, error) {
+func createACL() *pathpol.ACL {
+	if aclFilepath == "" {
+		return nil
+	}
 	acl := new(pathpol.ACL)
 	jsonACL, err := os.ReadFile(aclFilepath)
 	if err != nil {
-		jsonACL = []byte(`["+"]`)
+		panic(err)
 	}
 	err = json.Unmarshal(jsonACL, &acl)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return acl, nil
+	return acl
 }
 
-func createSequence() (*pathpol.Sequence, error) {
+func createSequence() *pathpol.Sequence {
+	if seqFilepath == "" {
+		return nil
+	}
 	seq := new(pathpol.Sequence)
 	jsonSeq, err := os.ReadFile(seqFilepath)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	err = json.Unmarshal(jsonSeq, &seq)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	return seq, nil
+	return seq
 }
 
-func generateTLSConfig() (*tls.Config, error) {
+func generateTLSConfig() *tls.Config {
 	key, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	template := x509.Certificate{SerialNumber: big.NewInt(1)}
 	certDER, err := x509.CreateCertificate(
 		rand.Reader, &template, &template, &key.PublicKey, key,
 	)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	keyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
@@ -249,10 +245,10 @@ func generateTLSConfig() (*tls.Config, error) {
 	})
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 		NextProtos:   []string{"scion-ipn-example"},
-	}, nil
+	}
 }
