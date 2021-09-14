@@ -22,26 +22,37 @@ import (
 )
 
 const (
+	quicTransport bool = false
+	tlsTransport  bool = true
+
 	defaultAclFilepath     = ""
-	defaultSeqFilepath     = ""
-	defaultTargetIA        = "17-ffaa:1:ef4"
-	defaultHost            = "192.168.1.2"
+	defaultHost            = "127.0.0.1"
 	defaultNegotiationPort = "50000"
 	defaultPingPort        = "50001"
+	defaultSeqFilepath     = ""
 	defaultShouldNegotiate = true
+	defaultTargetIA        = "17-ffaa:1:ef4"
+	defaultTransport       = quicTransport
 )
 
 var (
 	aclFilepath     string
-	seqFilepath     string
-	targetIA        string
 	host            string
 	negotiationPort string
 	pingPort        string
+	seqFilepath     string
 	shouldNegotiate bool
+	targetIA        string
+	transport       bool
 )
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Fatal("client error:", r)
+		}
+	}()
+
 	start := time.Now()
 	parseArgs()
 
@@ -64,21 +75,30 @@ func main() {
 	fmt.Println(int64(time.Since(start)))
 }
 
+func parseArgs() {
+	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath,
+		"path to ACL definition file (JSON)")
+	flag.StringVar(&host, "host", defaultHost,
+		"IP address of the negotiation server")
+	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort,
+		"port number of the negotiation server")
+	flag.StringVar(&pingPort, "ping", defaultPingPort,
+		"port number of the ping server")
+	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath,
+		"path to sequence definition file (JSON)")
+	flag.BoolVar(&shouldNegotiate, "neg", defaultShouldNegotiate,
+		"whether client should negotiate")
+	flag.StringVar(&targetIA, "ia", defaultTargetIA,
+		"ISD-AS of the target host")
+	flag.BoolVar(&transport, "tls", defaultTransport,
+		"use TLS instead of default QUIC")
+	flag.Parse()
+}
+
 func runNegotiationClient() ([]snet.Path, error) {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true,
-		NextProtos:         []string{"scion-ipn-example"},
-	}
-	session, err := quic.DialAddr(address, tlsConfig, nil)
-	if err != nil {
-		return nil, err
-	}
-	stream, err := session.OpenStreamSync(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	defer stream.Close()
+	channel := secureChannel(address)
+	defer channel.Close()
 
 	srcIA := (*appnet.DefNetwork()).IA
 	dstIA, _ := addr.IAFromString(targetIA)
@@ -126,7 +146,7 @@ func runNegotiationClient() ([]snet.Path, error) {
 		Filter:        filter.FromFilters(filters...),
 		Verbose:       true,
 	}
-	segset, err = agent.NegotiateOver(stream)
+	segset, err = agent.NegotiateOver(channel)
 	if err != nil {
 		return nil, err
 	}
@@ -149,45 +169,56 @@ func runNegotiationClient() ([]snet.Path, error) {
 	return newpaths, nil
 }
 
-func runPingClient(paths []snet.Path) error {
-	address := fmt.Sprintf("%s:%s", host, pingPort)
+func secureChannel(address string) io.ReadWriteCloser {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"scion-ipn-example"},
 	}
+	switch transport {
+	case quicTransport:
+		return quicStream(address, tlsConfig)
+	case tlsTransport:
+		return tlsConn(address, tlsConfig)
+	}
+	return nil
+}
+
+func quicStream(address string, tlsConfig *tls.Config) quic.Stream {
 	session, err := quic.DialAddr(address, tlsConfig, nil)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	stream, err := session.OpenStreamSync(context.Background())
 	if err != nil {
-		return err
+		panic(err)
 	}
-	defer stream.Close()
+	return stream
+}
 
-	_, err = stream.Write([]byte("PING"))
+func tlsConn(address string, tlsConfig *tls.Config) *tls.Conn {
+	conn, err := tls.Dial("tcp", address, tlsConfig)
+	if err != nil {
+		panic(err)
+	}
+	return conn
+}
+
+func runPingClient(paths []snet.Path) error {
+	address := fmt.Sprintf("%s:%s", host, pingPort)
+	channel := secureChannel(address)
+	defer channel.Close()
+	_, err := channel.Write([]byte("PING"))
 	if err != nil {
 		return err
 	}
 	buffer := make([]byte, 64)
-	n, err := stream.Read(buffer)
+	n, err := channel.Read(buffer)
 	if err != nil && err != io.EOF {
 		return err
 	}
 	buffer = buffer[:n]
 	fmt.Println("client received:", string(buffer))
 	return nil
-}
-
-func parseArgs() {
-	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath, "path to ACL definition file (JSON)")
-	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath, "path to sequence definition file (JSON)")
-	flag.StringVar(&targetIA, "ia", defaultTargetIA, "ISD-AS of the target host")
-	flag.StringVar(&host, "host", defaultHost, "IP address of the negotiation server")
-	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number of the negotiation server")
-	flag.StringVar(&pingPort, "ping", defaultPingPort, "port number of the ping server")
-	flag.BoolVar(&shouldNegotiate, "neg", defaultShouldNegotiate, "whether client should negotiate")
-	flag.Parse()
 }
 
 func createACL() (*pathpol.ACL, error) {

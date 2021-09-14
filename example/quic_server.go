@@ -25,7 +25,7 @@ import (
 const (
 	defaultAclFilepath     = ""
 	defaultSeqFilepath     = ""
-	defaultHost            = "192.168.1.2"
+	defaultHost            = "127.0.0.1"
 	defaultNegotiationPort = "50000"
 	defaultPingPort        = "50001"
 )
