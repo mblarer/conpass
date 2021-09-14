@@ -22,8 +22,8 @@ import (
 const (
 	defaultAclFilepath     = ""
 	defaultSeqFilepath     = ""
-	defaultNegotiationHost = "192.168.1.2"
-	defaultNegotiationPort = "1234"
+	defaultNegotiationHost = "127.0.0.1"
+	defaultNegotiationPort = "50000"
 )
 
 var (
