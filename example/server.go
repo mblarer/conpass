@@ -170,7 +170,7 @@ func runNegotiationServer() {
 }
 
 func runPingServer() {
-	if pingPort == 0 {
+	if pingPort == "0" {
 		return
 	}
 	address := fmt.Sprintf("%s:%s", host, pingPort)
