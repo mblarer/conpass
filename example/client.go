@@ -97,8 +97,8 @@ func parseArgs() {
 
 func runNegotiationClient() ([]snet.Path, error) {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
-	channel := secureChannel(address)
-	defer channel.Close()
+	stream := dial(address)
+	defer stream.Close()
 
 	srcIA := (*appnet.DefNetwork()).IA
 	dstIA, _ := addr.IAFromString(targetIA)
@@ -146,7 +146,7 @@ func runNegotiationClient() ([]snet.Path, error) {
 		Filter:        filter.FromFilters(filters...),
 		Verbose:       true,
 	}
-	segset, err = agent.NegotiateOver(channel)
+	segset, err = agent.NegotiateOver(stream)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func runNegotiationClient() ([]snet.Path, error) {
 	return newpaths, nil
 }
 
-func secureChannel(address string) io.ReadWriteCloser {
+func dial(address string) io.ReadWriteCloser {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"scion-ipn-example"},
@@ -180,7 +180,7 @@ func secureChannel(address string) io.ReadWriteCloser {
 	case tlsTransport:
 		return tlsConn(address, tlsConfig)
 	}
-	return nil
+	panic("transport is undefined")
 }
 
 func quicStream(address string, tlsConfig *tls.Config) quic.Stream {
@@ -205,14 +205,14 @@ func tlsConn(address string, tlsConfig *tls.Config) *tls.Conn {
 
 func runPingClient(paths []snet.Path) error {
 	address := fmt.Sprintf("%s:%s", host, pingPort)
-	channel := secureChannel(address)
-	defer channel.Close()
-	_, err := channel.Write([]byte("PING"))
+	stream := dial(address)
+	defer stream.Close()
+	_, err := conn.Write([]byte("PING"))
 	if err != nil {
 		return err
 	}
 	buffer := make([]byte, 64)
-	n, err := channel.Read(buffer)
+	n, err := stream.Read(buffer)
 	if err != nil && err != io.EOF {
 		return err
 	}

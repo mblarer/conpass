@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"math/big"
+	"net"
 	"os"
 
 	"github.com/lucas-clemente/quic-go"
@@ -23,11 +24,15 @@ import (
 )
 
 const (
+	quicTransport bool = false
+	tlsTransport  bool = true
+
 	defaultAclFilepath     = ""
 	defaultSeqFilepath     = ""
 	defaultHost            = "127.0.0.1"
 	defaultNegotiationPort = "50000"
 	defaultPingPort        = "50001"
+	defaultTransport       = quicTransport
 )
 
 var (
@@ -37,9 +42,16 @@ var (
 	host            string
 	negotiationPort string
 	pingPort        string
+	transport       bool
 )
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Fatal("server error:", r)
+		}
+	}()
+
 	parseArgs()
 	go runPingServer()
 	err := runNegotiationServer()
@@ -48,8 +60,92 @@ func main() {
 	}
 }
 
+func parseArgs() {
+	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath,
+		"path to ACL definition file (JSON)")
+	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath,
+		"path to sequence definition file (JSON)")
+	flag.StringVar(&host, "host", defaultHost,
+		"IP address to bind to")
+	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort,
+		"port number to listen on")
+	flag.StringVar(&pingPort, "ping", defaultPingPort,
+		"port number to listen on for ping")
+	flag.BoolVar(&transport, "tls", defaultTransport,
+		"use TLS instead of default QUIC")
+	flag.Parse()
+}
+
+type transportListener struct {
+	quicListener quic.Listener
+	tlsListener  net.Listener
+}
+
+func (tl transportListener) accept() io.ReadWriteCloser {
+	switch transport {
+	case quicTransport:
+		return quicAccept(tl.quicListener)
+	case tlsTransport:
+		return tlsAccept(tl.tlsListener)
+	}
+	panic("transport is undefined")
+}
+
+func quicAccept(listener quic.Listener) quic.Stream {
+	session, err := listener.Accept(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	stream, err := session.AcceptStream(context.Background())
+	if err != nil {
+		panic(err)
+	}
+	return stream
+}
+
+func tlsAccept(listener net.Listener) net.Conn {
+	conn, err := listener.Accept()
+	if err != nil {
+		panic(err)
+	}
+	return conn
+}
+
+func listen(address string) transportListener {
+	tlsConfig, err := generateTLSConfig()
+	if err != nil {
+		panic(err)
+	}
+	switch transport {
+	case quicTransport:
+		return transportListener{quicListener: quicListener(address, tlsConfig)}
+	case tlsTransport:
+		return transportListener{tlsListener: tlsListener(address, tlsConfig)}
+	}
+	panic("transport is undefined")
+}
+
+func quicListener(address string, tlsConfig *tls.Config) quic.Listener {
+	listener, err := quic.ListenAddr(address, tlsConfig, nil)
+	if err != nil {
+		panic(err)
+	}
+	return listener
+}
+
+func tlsListener(address string, tlsConfig *tls.Config) net.Listener {
+	listener, err := tls.Listen("tcp", address, tlsConfig)
+	if err != nil {
+		panic(err)
+	}
+	return listener
+}
+
 func runNegotiationServer() error {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
+	listener := listen(address)
+	log.Printf("server listening at %s", address)
+
 	acl, err := createACL()
 	if err != nil {
 		fmt.Println("could not create ACL policy:", err.Error())
@@ -72,24 +168,8 @@ func runNegotiationServer() error {
 		Filter:  filter.FromFilters(filters...),
 		Verbose: true,
 	}
-	tlsConfig, err := generateTLSConfig()
-	if err != nil {
-		return err
-	}
-	listener, err := quic.ListenAddr(address, tlsConfig, nil)
-	if err != nil {
-		return err
-	}
-	log.Printf("server listening at %s", address)
 	for {
-		session, err := listener.Accept(context.Background())
-		if err != nil {
-			return err
-		}
-		stream, err := session.AcceptStream(context.Background())
-		if err != nil {
-			return err
-		}
+		stream := listener.accept()
 		_, err = agent.NegotiateOver(stream)
 		if err != nil {
 			return err
@@ -100,28 +180,11 @@ func runNegotiationServer() error {
 
 func runPingServer() {
 	address := fmt.Sprintf("%s:%s", host, pingPort)
-	tlsConfig, err := generateTLSConfig()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	listener, err := quic.ListenAddr(address, tlsConfig, nil)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	listener := listen(address)
 	log.Printf("server listening at %s", address)
+
 	for {
-		session, err := listener.Accept(context.Background())
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		stream, err := session.AcceptStream(context.Background())
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+		stream := listener.accept()
 		buffer := make([]byte, 64)
 		n, err := stream.Read(buffer)
 		if err != nil && err != io.EOF {
@@ -136,15 +199,6 @@ func runPingServer() {
 			return
 		}
 	}
-}
-
-func parseArgs() {
-	flag.StringVar(&aclFilepath, "acl", defaultAclFilepath, "path to ACL definition file (JSON)")
-	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath, "path to sequence definition file (JSON)")
-	flag.StringVar(&host, "host", defaultHost, "IP address to bind to")
-	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort, "port number to listen on")
-	flag.StringVar(&pingPort, "ping", defaultPingPort, "port number to listen on for ping")
-	flag.Parse()
 }
 
 func createACL() (*pathpol.ACL, error) {
