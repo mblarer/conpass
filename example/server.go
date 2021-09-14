@@ -71,7 +71,7 @@ func parseArgs() {
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort,
 		"port number to listen on")
 	flag.StringVar(&pingPort, "ping", defaultPingPort,
-		"port number to listen on for ping")
+		"port number to listen on for ping (set to 0 to disable ping)")
 	flag.BoolVar(&transport, "tls", defaultTransport,
 		"use TLS instead of default QUIC")
 	flag.Parse()
@@ -170,6 +170,9 @@ func runNegotiationServer() {
 }
 
 func runPingServer() {
+	if pingPort == 0 {
+		return
+	}
 	address := fmt.Sprintf("%s:%s", host, pingPort)
 	listener := listen(address)
 	log.Printf("server listening at %s", address)
