@@ -76,11 +76,11 @@ func unpanic() {
 func startMeasurements() {
 	startTime = time.Now()
 	if profileFilepath != "" {
-		f, err := os.Create(profileFilepath)
+		profileFile, err := os.Create(profileFilepath)
 		if err != nil {
 			panic(err)
 		}
-		err = pprof.StartCPUProfile(f)
+		err = pprof.StartCPUProfile(profileFile)
 		if err != nil {
 			panic(err)
 		}
@@ -89,8 +89,10 @@ func startMeasurements() {
 
 func stopMeasurements() {
 	fmt.Println(int64(time.Since(startTime)))
-	pprof.StopCPUProfile()
-	profileFile.Close()
+	if profileFilepath != "" {
+		pprof.StopCPUProfile()
+		profileFile.Close()
+	}
 }
 
 func parseArgs() {
