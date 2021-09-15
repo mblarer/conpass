@@ -62,7 +62,9 @@ func main() {
 		paths := runNegotiationClient()
 		runPingClient(paths)
 	} else {
-		runPingClient(nil)
+		_, dstIA := connIAs()
+		paths := fetchPaths(dstIA)
+		runPingClient(paths)
 	}
 	stopMeasurements()
 }
