@@ -92,7 +92,7 @@ func runNegotiationClient() []snet.Path {
 	paths := fetchPaths(dstIA)
 	log.Println("queried", len(paths), "different paths to", dstIA)
 	segset := buildSegmentSet(paths, srcIA, dstIA)
-	log.Println("split paths into", len(segset.Segments), "different segments:")
+	log.Println("split paths into", len(segset.Segments), "different segments")
 	filter := buildFilter()
 	agent := ipn.Initiator{InitialSegset: segset, Filter: filter, Verbose: true}
 
@@ -105,7 +105,7 @@ func runNegotiationClient() []snet.Path {
 	}
 
 	negotiatedPaths := segset.MatchingPaths(paths)
-	log.Println("negotiated", len(negotiatedPaths), "paths in total:")
+	log.Println("negotiated", len(negotiatedPaths), "paths in total")
 	return negotiatedPaths
 }
 
