@@ -33,6 +33,7 @@ const (
 	defaultNegotiationPort = "50000"
 	defaultPingPort        = "50001"
 	defaultTransport       = quicTransport
+	defaultVerbose         = false
 )
 
 var (
@@ -43,6 +44,7 @@ var (
 	negotiationPort string
 	pingPort        string
 	transport       bool
+	verbose         bool
 )
 
 func main() {
@@ -74,6 +76,8 @@ func parseArgs() {
 		"port number to listen on for ping (set to 0 to disable ping)")
 	flag.BoolVar(&transport, "tls", defaultTransport,
 		"use TLS instead of default QUIC")
+	flag.BoolVar(&verbose, "v", defaultVerbose,
+		"be verbose and log to stdout")
 	flag.Parse()
 }
 
@@ -142,9 +146,11 @@ func tlsListener(address string, tlsConfig *tls.Config) net.Listener {
 func runNegotiationServer() {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	listener := listen(address)
-	log.Printf("server listening at %s", address)
+	if verbose {
+		log.Printf("server listening at %s", address)
+	}
 	filter := buildFilter()
-	agent := ipn.Responder{Filter: filter, Verbose: true}
+	agent := ipn.Responder{Filter: filter, Verbose: verbose}
 	for {
 		stream := listener.accept()
 		_, err := agent.NegotiateOver(stream)
@@ -177,7 +183,9 @@ func runPingServer() {
 	}
 	address := fmt.Sprintf("%s:%s", host, pingPort)
 	listener := listen(address)
-	log.Printf("server listening at %s", address)
+	if verbose {
+		log.Printf("server listening at %s", address)
+	}
 	for {
 		stream := listener.accept()
 		buffer := make([]byte, 64)
@@ -186,7 +194,9 @@ func runPingServer() {
 			panic(err)
 		}
 		buffer = buffer[:n]
-		fmt.Println("server received:", string(buffer))
+		if verbose {
+			log.Println("server received:", string(buffer))
+		}
 		_, err = stream.Write([]byte("PONG"))
 		if err != nil {
 			panic(err)

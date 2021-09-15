@@ -35,6 +35,7 @@ const (
 	defaultShouldNegotiate = true
 	defaultTargetIA        = "17-ffaa:0:1102" // ETHZ
 	defaultTransport       = quicTransport
+	defaultVerbose         = false
 )
 
 var (
@@ -47,6 +48,7 @@ var (
 	shouldNegotiate bool
 	targetIA        string
 	transport       bool
+	verbose         bool
 
 	profileFile *os.File
 	startTime   time.Time
@@ -114,17 +116,23 @@ func parseArgs() {
 		"ISD-AS of the target host")
 	flag.BoolVar(&transport, "tls", defaultTransport,
 		"use TLS instead of default QUIC")
+	flag.BoolVar(&verbose, "v", defaultVerbose,
+		"be verbose and log to stdout")
 	flag.Parse()
 }
 
 func runNegotiationClient() []snet.Path {
 	srcIA, dstIA := connIAs()
 	paths := fetchPaths(dstIA)
-	log.Println("queried", len(paths), "different paths to", dstIA)
+	if verbose {
+		log.Println("queried", len(paths), "different paths to", dstIA)
+	}
 	segset := buildSegmentSet(paths, srcIA, dstIA)
-	log.Println("split paths into", len(segset.Segments), "different segments")
+	if verbose {
+		log.Println("split paths into", len(segset.Segments), "different segments")
+	}
 	filter := buildFilter()
-	agent := ipn.Initiator{InitialSegset: segset, Filter: filter, Verbose: true}
+	agent := ipn.Initiator{InitialSegset: segset, Filter: filter, Verbose: verbose}
 
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	stream := dial(address)
@@ -135,7 +143,9 @@ func runNegotiationClient() []snet.Path {
 	}
 
 	negotiatedPaths := segset.MatchingPaths(paths)
-	log.Println("negotiated", len(negotiatedPaths), "paths in total")
+	if verbose {
+		log.Println("negotiated", len(negotiatedPaths), "paths in total")
+	}
 	return negotiatedPaths
 }
 
@@ -232,7 +242,9 @@ func runPingClient(paths []snet.Path) {
 		panic(err)
 	}
 	buffer = buffer[:n]
-	fmt.Println("client received:", string(buffer))
+	if verbose {
+		log.Println("client received:", string(buffer))
+	}
 }
 
 func createACL() *pathpol.ACL {
