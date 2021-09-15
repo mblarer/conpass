@@ -78,7 +78,6 @@ func unpanic() {
 }
 
 func startMeasurements() {
-	startTime = time.Now()
 	if profileFilepath != "" {
 		profileFile, err := os.Create(profileFilepath)
 		if err != nil {
@@ -89,6 +88,7 @@ func startMeasurements() {
 			panic(err)
 		}
 	}
+	startTime = time.Now()
 }
 
 func stopMeasurements() {
