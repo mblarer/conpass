@@ -88,32 +88,57 @@ func parseArgs() {
 }
 
 func runNegotiationClient() []snet.Path {
+	srcIA, dstIA := connIAs()
+	paths := fetchPaths(dstIA)
+	log.Println("queried", len(paths), "different paths to", dstIA)
+	segset := buildSegmentSet(paths, srcIA, dstIA)
+	log.Println("split paths into", len(segset.Segments), "different segments:")
+	filter := buildFilter()
+	agent := ipn.Initiator{InitialSegset: segset, Filter: filter, Verbose: true}
+
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	stream := dial(address)
 	defer stream.Close()
-	srcIA := (*appnet.DefNetwork()).IA
-	dstIA, _ := addr.IAFromString(targetIA)
+	segset, err := agent.NegotiateOver(stream)
+	if err != nil {
+		panic(err)
+	}
+
+	negotiatedPaths := segset.MatchingPaths(paths)
+	log.Println("negotiated", len(negotiatedPaths), "paths in total:")
+	return negotiatedPaths
+}
+
+func connIAs() (srcIA, dstIA addr.IA) {
+	srcIA = (*appnet.DefNetwork()).IA
+	dstIA, err := addr.IAFromString(targetIA)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func fetchPaths(dstIA addr.IA) []snet.Path {
 	paths, err := appnet.QueryPaths(dstIA)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("queried", len(paths), "different paths to", dstIA)
-	for _, path := range paths {
-		fmt.Println(" ", path)
-	}
+	return paths
+}
+
+func buildSegmentSet(paths []snet.Path, srcIA, dstIA addr.IA) segment.SegmentSet {
 	segments, err := segment.SplitPaths(paths)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("split paths into", len(segments), "different segments:")
-	for _, segment := range segments {
-		fmt.Println(" ", segment)
-	}
-	segset := segment.SegmentSet{
+	return segment.SegmentSet{
 		Segments: segments,
 		SrcIA:    srcIA,
 		DstIA:    dstIA,
 	}
+}
+
+func buildFilter() segment.Filter {
 	acl := createACL()
 	seq := createSequence()
 	filters := make([]segment.Filter, 0)
@@ -126,22 +151,7 @@ func runNegotiationClient() []snet.Path {
 		sequenceFilter := filter.FromSequence(*seq)
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
-	agent := ipn.Initiator{
-		InitialSegset: segset,
-		Filter:        filter.FromFilters(filters...),
-		Verbose:       true,
-	}
-	segset, err = agent.NegotiateOver(stream)
-	if err != nil {
-		panic(err)
-	}
-	negotiatedPaths := segset.MatchingPaths(paths)
-	fmt.Println()
-	log.Println("negotiated", len(negotiatedPaths), "paths in total:")
-	for _, path := range negotiatedPaths {
-		fmt.Println(" ", path)
-	}
-	return negotiatedPaths
+	return filter.FromFilters(filters...)
 }
 
 func dial(address string) io.ReadWriteCloser {

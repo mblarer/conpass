@@ -143,6 +143,19 @@ func runNegotiationServer() {
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	listener := listen(address)
 	log.Printf("server listening at %s", address)
+	filter := buildFilter()
+	agent := ipn.Responder{Filter: filter, Verbose: true}
+	for {
+		stream := listener.accept()
+		_, err := agent.NegotiateOver(stream)
+		if err != nil {
+			// TODO: improve error recovery
+			panic(err)
+		}
+	}
+}
+
+func buildFilter() segment.Filter {
 	acl := createACL()
 	seq := createSequence()
 	filters := make([]segment.Filter, 0)
@@ -155,18 +168,7 @@ func runNegotiationServer() {
 		sequenceFilter := filter.FromSequence(*seq)
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
-	agent := ipn.Responder{
-		Filter:  filter.FromFilters(filters...),
-		Verbose: true,
-	}
-	for {
-		stream := listener.accept()
-		_, err := agent.NegotiateOver(stream)
-		if err != nil {
-			// TODO: improve error recovery
-			panic(err)
-		}
-	}
+	return filter.FromFilters(filters...)
 }
 
 func runPingServer() {
