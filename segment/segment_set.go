@@ -1,6 +1,7 @@
 package segment
 
 import (
+	"github.com/mblarer/scion-ipn/path"
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 )
@@ -14,12 +15,12 @@ type SegmentSet struct {
 func (ss SegmentSet) MatchingPaths(paths []snet.Path) []snet.Path {
 	matching := make([]snet.Path, 0)
 	accepted := make(map[string]bool)
-	for _, path := range ss.EnumeratePaths() {
-		accepted[Hash(path)] = true
+	for _, spath := range ss.EnumeratePaths() {
+		accepted[spath.Fingerprint()] = true
 	}
-	for _, path := range paths {
-		if accepted[string(snet.Fingerprint(path))] {
-			matching = append(matching, path)
+	for _, spath := range paths {
+		if accepted[path.Fingerprint(spath)] {
+			matching = append(matching, spath)
 		}
 	}
 	return matching
