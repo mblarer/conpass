@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/pprof"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
@@ -29,6 +30,7 @@ const (
 	defaultHost            = "127.0.0.1"
 	defaultNegotiationPort = "50000"
 	defaultPingPort        = "50001"
+	defaultProfileFilepath = ""
 	defaultSeqFilepath     = ""
 	defaultShouldNegotiate = true
 	defaultTargetIA        = "17-ffaa:0:1102" // ETHZ
@@ -40,15 +42,19 @@ var (
 	host            string
 	negotiationPort string
 	pingPort        string
+	profileFilepath string
 	seqFilepath     string
 	shouldNegotiate bool
 	targetIA        string
 	transport       bool
+
+	profileFile *os.File
+	startTime   time.Time
 )
 
 func main() {
 	defer unpanic()
-	start := time.Now()
+	startMeasurements()
 	parseArgs()
 	if shouldNegotiate {
 		paths := runNegotiationClient()
@@ -56,7 +62,7 @@ func main() {
 	} else {
 		runPingClient(nil)
 	}
-	fmt.Println(int64(time.Since(start)))
+	stopMeasurements()
 }
 
 func unpanic() {
@@ -65,6 +71,26 @@ func unpanic() {
 			log.Fatal("client error: ", err)
 		}
 	}()
+}
+
+func startMeasurements() {
+	startTime = time.Now()
+	if profileFilepath != "" {
+		f, err := os.Create(profileFilepath)
+		if err != nil {
+			panic(err)
+		}
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func stopMeasurements() {
+	fmt.Println(int64(time.Since(startTime)))
+	pprof.StopCPUProfile()
+	profileFile.Close()
 }
 
 func parseArgs() {
@@ -76,6 +102,8 @@ func parseArgs() {
 		"port number of the negotiation server")
 	flag.StringVar(&pingPort, "ping", defaultPingPort,
 		"port number of the ping server")
+	flag.StringVar(&profileFilepath, "prof", defaultProfileFilepath,
+		"output file for profiling (default: none)")
 	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath,
 		"path to sequence definition file (JSON)")
 	flag.BoolVar(&shouldNegotiate, "neg", defaultShouldNegotiate,
