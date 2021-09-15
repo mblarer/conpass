@@ -227,14 +227,14 @@ func tlsConn(address string, tlsConfig *tls.Config) *tls.Conn {
 
 func pingOnPath(path snet.Path, srcIA, dstIA addr.IA) {
 	localhost := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)}
-	stats, err := ping.Run(context.Background(), ping.Config{
+	ping.Run(context.Background(), ping.Config{
 		Dispatcher: reliable.NewDispatcher(reliable.DefaultDispPath),
 		Local:      &snet.UDPAddr{IA: srcIA, Host: localhost},
-		Remote:     &snet.UDPAddr{IA: dstIA, Path: path.Path(), NextHop: path.UnderlayNextHop(), Host: localhost},
+		Remote:     &snet.UDPAddr{IA: dstIA, Host: localhost, Path: path.Path(), NextHop: path.UnderlayNextHop()},
 		Attempts:   1,
+		Interval:   1 * time.Second,
 		Timeout:    150 * time.Millisecond,
 	})
-	fmt.Println(stats, err)
 }
 
 func createACL() *pathpol.ACL {
