@@ -31,7 +31,7 @@ const (
 	defaultPingPort        = "50001"
 	defaultSeqFilepath     = ""
 	defaultShouldNegotiate = true
-	defaultTargetIA        = "17-ffaa:1:ef4"
+	defaultTargetIA        = "17-ffaa:0:1102" // ETHZ
 	defaultTransport       = quicTransport
 )
 
@@ -135,23 +135,13 @@ func runNegotiationClient() []snet.Path {
 	if err != nil {
 		panic(err)
 	}
-	newpaths := make([]snet.Path, 0)
-	srcDstPaths := segment.SrcDstPaths(segset.Segments, srcIA, dstIA)
-	accepted := make(map[string]bool)
-	for _, sdpath := range srcDstPaths {
-		accepted[segment.Hash(sdpath)] = true
-	}
-	for _, path := range paths {
-		if accepted[string(snet.Fingerprint(path))] {
-			newpaths = append(newpaths, path)
-		}
-	}
+	negotiatedPaths := segset.MatchingPaths(paths)
 	fmt.Println()
-	log.Println("negotiated", len(newpaths), "paths in total:")
-	for _, path := range newpaths {
+	log.Println("negotiated", len(negotiatedPaths), "paths in total:")
+	for _, path := range negotiatedPaths {
 		fmt.Println(" ", path)
 	}
-	return newpaths
+	return negotiatedPaths
 }
 
 func dial(address string) io.ReadWriteCloser {
