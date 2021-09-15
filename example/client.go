@@ -54,8 +54,8 @@ var (
 
 func main() {
 	defer unpanic()
-	startMeasurements()
 	parseArgs()
+	startMeasurements()
 	if shouldNegotiate {
 		paths := runNegotiationClient()
 		runPingClient(paths)
