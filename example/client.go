@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"runtime/pprof"
 	"time"
@@ -20,6 +21,8 @@ import (
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/pathpol"
 	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/sock/reliable"
+	"github.com/scionproto/scion/go/pkg/ping"
 )
 
 const (
@@ -29,7 +32,6 @@ const (
 	defaultAclFilepath     = ""
 	defaultHost            = "127.0.0.1"
 	defaultNegotiationPort = "50000"
-	defaultPingPort        = "50001"
 	defaultProfileFilepath = ""
 	defaultSeqFilepath     = ""
 	defaultShouldNegotiate = true
@@ -42,7 +44,6 @@ var (
 	aclFilepath     string
 	host            string
 	negotiationPort string
-	pingPort        string
 	profileFilepath string
 	seqFilepath     string
 	shouldNegotiate bool
@@ -55,26 +56,24 @@ var (
 )
 
 func main() {
-	defer unpanic()
-	parseArgs()
-	startMeasurements()
-	if shouldNegotiate {
-		paths := runNegotiationClient()
-		runPingClient(paths)
-	} else {
-		_, dstIA := connIAs()
-		paths := fetchPaths(dstIA)
-		runPingClient(paths)
-	}
-	stopMeasurements()
-}
-
-func unpanic() {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Fatal("client error: ", err)
 		}
 	}()
+	parseArgs()
+	startMeasurements()
+	srcIA, dstIA := connIAs()
+	paths := fetchPaths(dstIA)
+	if shouldNegotiate {
+		paths = negotiate(paths, srcIA, dstIA)
+	}
+	if len(paths) > 0 {
+		pingOnPath(paths[0], srcIA, dstIA)
+	} else if verbose {
+		log.Println("there are no paths available for pinging")
+	}
+	stopMeasurements()
 }
 
 func startMeasurements() {
@@ -106,8 +105,6 @@ func parseArgs() {
 		"IP address of the negotiation server")
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort,
 		"port number of the negotiation server")
-	flag.StringVar(&pingPort, "ping", defaultPingPort,
-		"port number of the ping server")
 	flag.StringVar(&profileFilepath, "prof", defaultProfileFilepath,
 		"output file for profiling (default: none)")
 	flag.StringVar(&seqFilepath, "seq", defaultSeqFilepath,
@@ -123,12 +120,27 @@ func parseArgs() {
 	flag.Parse()
 }
 
-func runNegotiationClient() []snet.Path {
-	srcIA, dstIA := connIAs()
-	paths := fetchPaths(dstIA)
+func connIAs() (srcIA, dstIA addr.IA) {
+	srcIA = (*appnet.DefNetwork()).IA
+	dstIA, err := addr.IAFromString(targetIA)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func fetchPaths(dstIA addr.IA) []snet.Path {
+	paths, err := appnet.QueryPaths(dstIA)
+	if err != nil {
+		panic(err)
+	}
 	if verbose {
 		log.Println("queried", len(paths), "different paths to", dstIA)
 	}
+	return paths
+}
+
+func negotiate(paths []snet.Path, srcIA, dstIA addr.IA) []snet.Path {
 	segset := buildSegmentSet(paths, srcIA, dstIA)
 	if verbose {
 		log.Println("split paths into", len(segset.Segments), "different segments")
@@ -149,23 +161,6 @@ func runNegotiationClient() []snet.Path {
 		log.Println("negotiated", len(negotiatedPaths), "paths in total")
 	}
 	return negotiatedPaths
-}
-
-func connIAs() (srcIA, dstIA addr.IA) {
-	srcIA = (*appnet.DefNetwork()).IA
-	dstIA, err := addr.IAFromString(targetIA)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func fetchPaths(dstIA addr.IA) []snet.Path {
-	paths, err := appnet.QueryPaths(dstIA)
-	if err != nil {
-		panic(err)
-	}
-	return paths
 }
 
 func buildSegmentSet(paths []snet.Path, srcIA, dstIA addr.IA) segment.SegmentSet {
@@ -230,23 +225,16 @@ func tlsConn(address string, tlsConfig *tls.Config) *tls.Conn {
 	return conn
 }
 
-func runPingClient(paths []snet.Path) {
-	address := fmt.Sprintf("%s:%s", host, pingPort)
-	stream := dial(address)
-	defer stream.Close()
-	_, err := stream.Write([]byte("PING"))
-	if err != nil {
-		panic(err)
-	}
-	buffer := make([]byte, 64)
-	n, err := stream.Read(buffer)
-	if err != nil && err != io.EOF {
-		panic(err)
-	}
-	buffer = buffer[:n]
-	if verbose {
-		log.Println("client received:", string(buffer))
-	}
+func pingOnPath(path snet.Path, srcIA, dstIA addr.IA) {
+	localhost := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)}
+	stats, err := ping.Run(context.Background(), ping.Config{
+		Dispatcher: reliable.NewDispatcher(reliable.DefaultDispPath),
+		Local:      &snet.UDPAddr{IA: srcIA, Host: localhost},
+		Remote:     &snet.UDPAddr{IA: dstIA, Path: path.Path(), NextHop: path.UnderlayNextHop(), Host: localhost},
+		Attempts:   1,
+		Timeout:    150 * time.Millisecond,
+	})
+	fmt.Println(stats, err)
 }
 
 func createACL() *pathpol.ACL {

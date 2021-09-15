@@ -31,7 +31,6 @@ const (
 	defaultSeqFilepath     = ""
 	defaultHost            = "127.0.0.1"
 	defaultNegotiationPort = "50000"
-	defaultPingPort        = "50001"
 	defaultTransport       = quicTransport
 	defaultVerbose         = false
 )
@@ -42,25 +41,18 @@ var (
 	targetIA        string
 	host            string
 	negotiationPort string
-	pingPort        string
 	transport       bool
 	verbose         bool
 )
 
 func main() {
-	defer unpanic()
-	parseArgs()
-	go func() {
-		defer unpanic()
-		runPingServer()
+	defer func() {
+		if err := recover(); err != nil {
+			log.Fatal("server error: ", err)
+		}
 	}()
+	parseArgs()
 	runNegotiationServer()
-}
-
-func unpanic() {
-	if err := recover(); err != nil {
-		log.Fatal("server error: ", err)
-	}
 }
 
 func parseArgs() {
@@ -72,8 +64,6 @@ func parseArgs() {
 		"IP address to bind to")
 	flag.StringVar(&negotiationPort, "port", defaultNegotiationPort,
 		"port number to listen on")
-	flag.StringVar(&pingPort, "ping", defaultPingPort,
-		"port number to listen on for ping (set to 0 to disable ping)")
 	flag.BoolVar(&transport, "tls", defaultTransport,
 		"use TLS instead of default QUIC")
 	flag.BoolVar(&verbose, "v", defaultVerbose,
@@ -175,33 +165,6 @@ func buildFilter() segment.Filter {
 		filters = append(filters, pathEnumerator, sequenceFilter)
 	}
 	return filter.FromFilters(filters...)
-}
-
-func runPingServer() {
-	if pingPort == "0" {
-		return
-	}
-	address := fmt.Sprintf("%s:%s", host, pingPort)
-	listener := listen(address)
-	if verbose {
-		log.Printf("server listening at %s", address)
-	}
-	for {
-		stream := listener.accept()
-		buffer := make([]byte, 64)
-		n, err := stream.Read(buffer)
-		if err != nil && err != io.EOF {
-			panic(err)
-		}
-		buffer = buffer[:n]
-		if verbose {
-			log.Println("server received:", string(buffer))
-		}
-		_, err = stream.Write([]byte("PONG"))
-		if err != nil {
-			panic(err)
-		}
-	}
 }
 
 func createACL() *pathpol.ACL {
