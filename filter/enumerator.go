@@ -7,7 +7,7 @@ type PathEnumerator struct{}
 
 func (_ PathEnumerator) Filter(segset segment.SegmentSet) segment.SegmentSet {
 	return segment.SegmentSet{
-		Segments: segment.SrcDstPaths(segset.Segments, segset.SrcIA, segset.DstIA),
+		Segments: segset.EnumeratePaths(),
 		SrcIA:    segset.SrcIA,
 		DstIA:    segset.DstIA,
 	}

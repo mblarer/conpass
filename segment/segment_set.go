@@ -13,10 +13,9 @@ type SegmentSet struct {
 
 func (ss SegmentSet) MatchingPaths(paths []snet.Path) []snet.Path {
 	matching := make([]snet.Path, 0)
-	srcDstPaths := SrcDstPaths(ss.Segments, ss.SrcIA, ss.DstIA)
 	accepted := make(map[string]bool)
-	for _, sdpath := range srcDstPaths {
-		accepted[Hash(sdpath)] = true
+	for _, path := range ss.EnumeratePaths() {
+		accepted[Hash(path)] = true
 	}
 	for _, path := range paths {
 		if accepted[string(snet.Fingerprint(path))] {
@@ -24,4 +23,8 @@ func (ss SegmentSet) MatchingPaths(paths []snet.Path) []snet.Path {
 		}
 	}
 	return matching
+}
+
+func (ss SegmentSet) EnumeratePaths() []Segment {
+	return SrcDstPaths(ss.Segments, ss.SrcIA, ss.DstIA)
 }
