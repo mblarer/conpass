@@ -2,15 +2,20 @@ package filter
 
 import "github.com/mblarer/scion-ipn/segment"
 
-// PredicateFilter is an implementation of the segment.Filter interface.
-type PredicateFilter struct {
-	Accept func(segment.Segment) bool
+// FromPredicate returns a segment.Filter that keeps path segments if and only
+// if they satisfy a given predicate.
+func FromPredicate(accept func(segment.Segment) bool) segment.Filter {
+	return predicateFilter{accept: accept}
 }
 
-func (pf PredicateFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
+type predicateFilter struct {
+	accept func(segment.Segment) bool
+}
+
+func (pf predicateFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
 	filtered := make([]segment.Segment, 0)
 	for _, segment := range segset.Segments {
-		if pf.Accept(segment) {
+		if pf.accept(segment) {
 			filtered = append(filtered, segment)
 		}
 	}
@@ -19,8 +24,4 @@ func (pf PredicateFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
 		SrcIA:    segset.SrcIA,
 		DstIA:    segset.DstIA,
 	}
-}
-
-func FromPredicate(accept func(segment.Segment) bool) segment.Filter {
-	return PredicateFilter{Accept: accept}
 }
