@@ -7,20 +7,21 @@ import (
 	"github.com/scionproto/scion/go/lib/snet"
 )
 
-// SequenceFilter implements the segment.Filter interface.
-type SequenceFilter struct {
-	Sequence pathpol.Sequence
+// FromSequence returns a segment.Filter that filters path segments according
+// to a given pathpol.Sequence policy.
+func FromSequence(sequence pathpol.Sequence) segment.Filter {
+	return sequenceFilter{sequence: sequence}
 }
 
-func (sf SequenceFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
+type sequenceFilter struct {
+	sequence pathpol.Sequence
+}
+
+func (sf sequenceFilter) Filter(segset segment.SegmentSet) segment.SegmentSet {
 	return FromPredicate(func(segment segment.Segment) bool {
 		path := path.InterfacePath{segment.PathInterfaces()}
-		result := sf.Sequence.Eval([]snet.Path{path})
+		result := sf.sequence.Eval([]snet.Path{path})
 		accept := len(result) == 1
 		return accept
 	}).Filter(segset)
-}
-
-func FromSequence(sequence pathpol.Sequence) segment.Filter {
-	return SequenceFilter{Sequence: sequence}
 }
