@@ -2,17 +2,19 @@ package filter
 
 import "github.com/mblarer/scion-ipn/segment"
 
-// PathEnumerator implements the segment.Filter interface.
-type PathEnumerator struct{}
+// SrcDstPathEnumerator returns a segment.Filter that enumerates all paths
+// between the given source ISD-AS and the destination ISD-AS that can be
+// constructed from the given path segments.
+func SrcDstPathEnumerator() segment.Filter {
+	return pathEnumerator{}
+}
 
-func (_ PathEnumerator) Filter(segset segment.SegmentSet) segment.SegmentSet {
+type pathEnumerator struct{}
+
+func (_ pathEnumerator) Filter(segset segment.SegmentSet) segment.SegmentSet {
 	return segment.SegmentSet{
 		Segments: segset.EnumeratePaths(),
 		SrcIA:    segset.SrcIA,
 		DstIA:    segset.DstIA,
 	}
-}
-
-func SrcDstPathEnumerator() segment.Filter {
-	return PathEnumerator{}
 }
