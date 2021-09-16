@@ -2,18 +2,19 @@ package filter
 
 import "github.com/mblarer/scion-ipn/segment"
 
-// FilterComposition implements the segment.Filter interface.
-type FilterComposition struct {
-	Filters []segment.Filter
+// FromFilters returns a segment.Filter that applies a sequence of
+// caller-supplied filters, in the given order.
+func FromFilters(filters ...segment.Filter) segment.Filter {
+	return filterComposition{filters: filters}
 }
 
-func (fc FilterComposition) Filter(segset segment.SegmentSet) segment.SegmentSet {
-	for _, filter := range fc.Filters {
+type filterComposition struct {
+	filters []segment.Filter
+}
+
+func (fc filterComposition) Filter(segset segment.SegmentSet) segment.SegmentSet {
+	for _, filter := range fc.filters {
 		segset = filter.Filter(segset)
 	}
 	return segset
-}
-
-func FromFilters(filters ...segment.Filter) segment.Filter {
-	return FilterComposition{Filters: filters}
 }
