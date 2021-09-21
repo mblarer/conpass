@@ -119,7 +119,7 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 		}
 	}
 
-	numsegs := uint16(currentIdx)
+	numsegs := uint16(currentIdx - len(oldsegs))
 	binary.BigEndian.PutUint16(allbytes[2:], numsegs)
 	return allbytes, sentsegs
 }

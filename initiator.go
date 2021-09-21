@@ -37,7 +37,8 @@ func (agent Initiator) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, 
 	}
 	_, err = stream.Read(lenbuf)
 	msglen := int(binary.BigEndian.Uint32(lenbuf))
-	recvbuf := make([]byte, 1<<20) // 1 MiB buffer
+	// TODO: handle too large or negative message lengths
+	recvbuf := make([]byte, msglen)
 	read := 0
 	for err == nil && read < msglen {
 		n, e := stream.Read(recvbuf[read:])
