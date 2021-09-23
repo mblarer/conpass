@@ -143,11 +143,7 @@ func runNegotiationServer() {
 	agent := ipn.Responder{Filter: filter, Verbose: verbose}
 	for {
 		stream := listener.accept()
-		_, err := agent.NegotiateOver(stream)
-		if err != nil {
-			// TODO: improve error recovery
-			panic(err)
-		}
+		go agent.NegotiateOver(stream)
 	}
 }
 
