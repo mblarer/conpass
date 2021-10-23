@@ -212,6 +212,21 @@ func TestNegotiation1PathServerSequenceDeny(t *testing.T) {
 	test(segset, cfilter, sfilter, want, t)
 }
 
+func TestNegotiationTooLongPath(t *testing.T) {
+	segments := []segment.Segment{
+		segment.FromString("19-ffaa:0:1303 1>1 19-ffaa:0:1302"),
+		segment.FromString("19-ffaa:0:1302 2>1 17-ffaa:0:1108"),
+		segment.FromString("17-ffaa:0:1108 2>1 17-ffaa:0:1109"),
+		segment.FromString("17-ffaa:0:1109 2>1 17-ffaa:0:1102 2>1 17-ffaa:0:1107"),
+	}
+	srcIA, _ := addr.IAFromString("19-ffaa:0:1303")
+	dstIA, _ := addr.IAFromString("17-ffaa:0:1107")
+	segset := segment.SegmentSet{Segments: segments, SrcIA: srcIA, DstIA: dstIA}
+	cfilter, sfilter := filter.FromFilters(), filter.SrcDstPathEnumerator()
+	want := []segment.Segment{}
+	test(segset, cfilter, sfilter, want, t)
+}
+
 func test(ss segment.SegmentSet, cf, sf segment.Filter, want []segment.Segment, t *testing.T) {
 	r1, w1 := io.Pipe()
 	r2, w2 := io.Pipe()
