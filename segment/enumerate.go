@@ -26,7 +26,7 @@ func createSegmentBuckets(segments []Segment) map[addr.IA][]Segment {
 
 func recursiveSrcDstSeglists(srcIA, dstIA addr.IA, buckets map[addr.IA][]Segment) [][]Segment {
 	if srcIA == dstIA {
-		return [][]Segment{[]Segment{}}
+		return [][]Segment{{}}
 	}
 	srcToDstSeglists := make([][]Segment, 0)
 	for _, srcToMidSegment := range buckets[srcIA] {

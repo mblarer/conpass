@@ -9,12 +9,22 @@ import (
 	"github.com/mblarer/scion-ipn/segment"
 )
 
+// Initiator represents a CONPASS agent in the initiator role.
 type Initiator struct {
+	// InitialSegset is the set of segments that is initially available to the
+	// Initiator. It may be the result of querying the SCION daemon or it can
+	// be set manually for testing, e.g., when no SCION daemon is available.
 	InitialSegset segment.SegmentSet
-	Filter        segment.Filter
-	Verbose       bool
+	// Filter is the segment filter according to which the Initiator gives
+	// consent to certain segments or combinations of segments.
+	Filter segment.Filter
+	// Verbose is a flag which makes the Initiator more verbose if true.
+	Verbose bool
 }
 
+// NegotiateOver makes the Initiator negotiate consent over a given bytestream.
+// If the negotiation is successful, the method returns the set of segments
+// that have bilateral consent. Otherwise, an error is returned.
 func (agent Initiator) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, error) {
 	newsegset := agent.Filter.Filter(agent.InitialSegset)
 	if agent.Verbose {

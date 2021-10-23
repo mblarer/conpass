@@ -44,9 +44,9 @@ func main() {
 			dstIA, _ := addr.IAFromString("2-ffaa:0:1000")
 
 			segments := make([]segment.Segment, 0)
-			segments = append(segments, internal.CreateSegments(k, hops, srcIA, core1)...)
-			segments = append(segments, internal.CreateSegments(k, hops, core1, core2)...)
-			segments = append(segments, internal.CreateSegments(k, hops, core2, dstIA)...)
+			segments = append(segments, internal.GenerateSegments(k, hops, srcIA, core1)...)
+			segments = append(segments, internal.GenerateSegments(k, hops, core1, core2)...)
+			segments = append(segments, internal.GenerateSegments(k, hops, core2, dstIA)...)
 
 			segset := segment.SegmentSet{Segments: segments, SrcIA: srcIA, DstIA: dstIA}
 

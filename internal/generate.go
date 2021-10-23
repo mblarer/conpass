@@ -7,15 +7,17 @@ import (
 	"github.com/scionproto/scion/go/lib/snet"
 )
 
-func CreateSegments(n, hops int, srcIA, dstIA addr.IA) []segment.Segment {
+// GenerateSegments generates n disjoint segments with a given number of hops
+// between a source and destination ISD-AS address pair.
+func GenerateSegments(n, hops int, srcIA, dstIA addr.IA) []segment.Segment {
 	segments := make([]segment.Segment, n)
 	for i := 0; i < n; i++ {
-		segments[i] = CreateSegment(i, hops, srcIA, dstIA)
+		segments[i] = generateSegment(i, hops, srcIA, dstIA)
 	}
 	return segments
 }
 
-func CreateSegment(seed, hops int, srcIA, dstIA addr.IA) segment.Segment {
+func generateSegment(seed, hops int, srcIA, dstIA addr.IA) segment.Segment {
 	interfaces := make([]snet.PathInterface, (hops-1)*2)
 	interfaces[0] = snet.PathInterface{ID: common.IFIDType(seed), IA: srcIA}
 	for i := 1; i < hops-1; i++ {

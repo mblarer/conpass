@@ -9,11 +9,18 @@ import (
 	"github.com/mblarer/scion-ipn/segment"
 )
 
+// Responder represents a CONPASS agent in the responder role.
 type Responder struct {
-	Filter  segment.Filter
+	// Filter is the segment filter according to which the Responder gives
+	// consent to certain segments or combinations of segments.
+	Filter segment.Filter
+	// Verbose is a flag which makes the Responder more verbose if true.
 	Verbose bool
 }
 
+// NegotiateOver makes the Responder negotiate consent over a given bytestream.
+// If the negotiation is successful, the method returns the set of segments
+// that have bilateral consent. Otherwise, an error is returned.
 func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, error) {
 	lenbuf := make([]byte, 4)
 	_, err := stream.Read(lenbuf)

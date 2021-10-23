@@ -59,6 +59,8 @@ func FromString(segstr string) Segment {
 
 // Literal implements the Segment interface.
 type Literal struct {
+	// Interfaces is the sequence of ingress-egress interfaces of which the
+	// segment literal consists.
 	Interfaces  []snet.PathInterface
 	fingerprint string
 }

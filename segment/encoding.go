@@ -10,15 +10,22 @@ import (
 )
 
 const (
-	SegTypeLiteral     uint8 = 0 << 0
-	SegTypeComposition uint8 = 1 << 0
-	SegTypeMask        uint8 = 1 << 0
-
-	SegAcceptedFalse uint8 = 0 << 1
-	SegAcceptedTrue  uint8 = 1 << 1
-	SegAcceptedMask  uint8 = 1 << 1
+	// The segment type is encoded as the least significant bit.
+	segTypeMask        uint8 = 1 << 0
+	segTypeLiteral     uint8 = 0 << 0
+	segTypeComposition uint8 = 1 << 0
+	// The consent of a segment is the second least significant bit.
+	segAcceptedMask  uint8 = 1 << 1
+	segAcceptedFalse uint8 = 0 << 1
+	segAcceptedTrue  uint8 = 1 << 1
 )
 
+// DecodeSegments decodes the bytes received from the other CONPASS agent into
+// segments. This function also takes into account the ``old'' set of segments,
+// which is already known to both agents.  The first set of segments contains
+// all segments that were transmitted, the second set contains only the
+// accepted segments. This function also returns the source and destination
+// ASes. If the decoding failed, an error is returned instead.
 func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, []Segment, addr.IA, addr.IA, error) {
 	hdrlen := int(bytes[1])
 	numsegs := int(binary.BigEndian.Uint16(bytes[2:]))
@@ -29,16 +36,16 @@ func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, []Segment, addr
 	bytes = bytes[hdrlen:]
 	for i := 0; i < numsegs; i++ {
 		flags := bytes[0]
-		segtype := flags & SegTypeMask
-		accepted := SegAcceptedTrue == (flags & SegAcceptedMask)
+		segtype := flags & segTypeMask
+		accepted := segAcceptedTrue == (flags & segAcceptedMask)
 		seglen := int(bytes[1])
 		optlen := int(binary.BigEndian.Uint16(bytes[2:]))
 
 		switch segtype {
-		case SegTypeLiteral:
-			newsegs[i] = FromInterfaces(DecodeInterfaces(bytes[4:], seglen)...)
+		case segTypeLiteral:
+			newsegs[i] = FromInterfaces(decodeInterfaces(bytes[4:], seglen)...)
 			bytes = bytes[4+seglen*16+optlen:]
-		case SegTypeComposition:
+		case segTypeComposition:
 			subsegs := make([]Segment, seglen)
 			for j := 0; j < seglen; j++ {
 				id := binary.BigEndian.Uint16(bytes[4+j*2:])
@@ -62,7 +69,7 @@ func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, []Segment, addr
 	return newsegs, accsegs, srcIA, dstIA, nil
 }
 
-func DecodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
+func decodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
 	interfaces := make([]snet.PathInterface, seglen)
 	for i := 0; i < seglen; i++ {
 		id := binary.BigEndian.Uint64(bytes[i*16:])
@@ -75,7 +82,10 @@ func DecodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
 	return interfaces
 }
 
-// EncodeSegments encodes a new set of segments for transport.
+// EncodeSegments encodes the segments to sent to the other CONPASS segments in
+// bytes. This function also takes into account the ``old'' set of segments,
+// which is already known to both agents. The function returns the byte
+// sequence as well the encoded segments in the order of transmission.
 func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, []Segment) {
 	hdrlen := 20
 	allbytes := make([]byte, hdrlen)
@@ -92,14 +102,14 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 
 	for _, newseg := range newsegs {
 		// encode (unaccepted) subsegments
-		subsegs := RecursiveSubsegments(newseg)
+		subsegs := recursiveSubsegments(newseg)
 		for _, subseg := range subsegs {
 			fprint := subseg.Fingerprint()
 			if _, ok := segidx[fprint]; !ok { // not seen before
 				segidx[fprint] = currentIdx
 				currentIdx++
 				accepted := false
-				allbytes = append(allbytes, EncodeSegment(subseg, accepted, segidx)...)
+				allbytes = append(allbytes, encodeSegment(subseg, accepted, segidx)...)
 				sentsegs = append(sentsegs, subseg)
 			}
 		}
@@ -109,12 +119,12 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 			segidx[fprint] = currentIdx
 			currentIdx++
 			accepted := true
-			allbytes = append(allbytes, EncodeSegment(newseg, accepted, segidx)...)
+			allbytes = append(allbytes, encodeSegment(newseg, accepted, segidx)...)
 			sentsegs = append(sentsegs, newseg)
 		} else { // seen before
 			currentIdx++
 			accepted := true
-			allbytes = append(allbytes, EncodeSegment(FromSegments(oldsegs[idx]), accepted, segidx)...)
+			allbytes = append(allbytes, encodeSegment(FromSegments(oldsegs[idx]), accepted, segidx)...)
 			sentsegs = append(sentsegs, FromSegments(oldsegs[idx]))
 		}
 	}
@@ -124,24 +134,24 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 	return allbytes, sentsegs
 }
 
-func EncodeSegment(segment Segment, accepted bool, segidx map[string]int) []byte {
+func encodeSegment(segment Segment, accepted bool, segidx map[string]int) []byte {
 	var flags uint8
 	var seglen, optlen int
 	if accepted {
-		flags = SegAcceptedTrue
+		flags = segAcceptedTrue
 	} else {
-		flags = SegAcceptedFalse
+		flags = segAcceptedFalse
 	}
 	var bytes []byte
 
 	switch s := segment.(type) {
 	case Literal:
-		flags |= SegTypeLiteral
+		flags |= segTypeLiteral
 		seglen = len(s.Interfaces)
 		bytes = make([]byte, 4+seglen*16+optlen)
-		EncodeInterfaces(bytes[4:], s.Interfaces)
+		encodeInterfaces(bytes[4:], s.Interfaces)
 	case Composition:
-		flags |= SegTypeComposition
+		flags |= segTypeComposition
 		seglen = len(s.Segments)
 		bytes = make([]byte, 4+seglen*2+optlen)
 		for i, subseg := range s.Segments {
@@ -155,12 +165,12 @@ func EncodeSegment(segment Segment, accepted bool, segidx map[string]int) []byte
 	return bytes
 }
 
-func RecursiveSubsegments(segment Segment) []Segment {
+func recursiveSubsegments(segment Segment) []Segment {
 	switch s := segment.(type) {
 	case Composition:
 		segments := make([]Segment, 0)
 		for _, segment := range s.Segments {
-			segments = append(segments, RecursiveSubsegments(segment)...)
+			segments = append(segments, recursiveSubsegments(segment)...)
 			segments = append(segments, segment)
 		}
 		return segments
@@ -168,7 +178,7 @@ func RecursiveSubsegments(segment Segment) []Segment {
 	return []Segment{}
 }
 
-func EncodeInterfaces(bytes []byte, interfaces []snet.PathInterface) {
+func encodeInterfaces(bytes []byte, interfaces []snet.PathInterface) {
 	for i, iface := range interfaces {
 		binary.BigEndian.PutUint64(bytes[i*16:], uint64(iface.ID))
 		binary.BigEndian.PutUint64(bytes[i*16+8:], uint64(iface.IA.IAInt()))

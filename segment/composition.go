@@ -22,6 +22,7 @@ func FromSegments(segments ...Segment) Segment {
 
 // Composition implements the Segment interface.
 type Composition struct {
+	// Segments are the subsegments of the segment composition.
 	Segments    []Segment
 	fingerprint string
 }
