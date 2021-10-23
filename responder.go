@@ -1,7 +1,6 @@
 package conpass
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -22,21 +21,7 @@ type Responder struct {
 // If the negotiation is successful, the method returns the set of segments
 // that have bilateral consent. Otherwise, an error is returned.
 func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, error) {
-	lenbuf := make([]byte, 4)
-	_, err := stream.Read(lenbuf)
-	msglen := int(binary.BigEndian.Uint32(lenbuf))
-	// TODO: handle too large or negative lengths
-	recvbuffer := make([]byte, msglen)
-	read := 0
-	for err == nil && read < msglen {
-		n, e := stream.Read(recvbuffer[read:])
-		read += n
-		err = e
-	}
-	if err != nil && err != io.EOF {
-		return segment.SegmentSet{}, err
-	}
-	segsin, accsegs, srcIA, dstIA, err := segment.DecodeSegments(recvbuffer, []segment.Segment{})
+	segsin, accsegs, srcIA, dstIA, err := segment.ReadSegments(stream, []segment.Segment{})
 	if err != nil {
 		return segment.SegmentSet{}, err
 	}
@@ -57,15 +42,6 @@ func (agent Responder) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, 
 			fmt.Println(" ", segment)
 		}
 	}
-	sendbuffer, _ := segment.EncodeSegments(segsetout.Segments, segsin, srcIA, dstIA)
-	binary.BigEndian.PutUint32(lenbuf, uint32(len(sendbuffer)))
-	_, err = stream.Write(lenbuf)
-	if err != nil {
-		return segment.SegmentSet{}, err
-	}
-	_, err = stream.Write(sendbuffer)
-	if err != nil {
-		return segment.SegmentSet{}, err
-	}
+	segment.WriteSegments(stream, segsetout.Segments, segsin, srcIA, dstIA)
 	return segsetout, nil
 }

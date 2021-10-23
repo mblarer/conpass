@@ -1,7 +1,6 @@
 package conpass
 
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -34,31 +33,8 @@ func (agent Initiator) NegotiateOver(stream io.ReadWriter) (segment.SegmentSet, 
 		}
 	}
 	oldsegs := []segment.Segment{}
-	bytes, sentsegs := segment.EncodeSegments(newsegset.Segments, oldsegs, newsegset.SrcIA, newsegset.DstIA)
-	lenbuf := make([]byte, 4)
-	binary.BigEndian.PutUint32(lenbuf, uint32(len(bytes)))
-	_, err := stream.Write(lenbuf)
-	if err != nil {
-		return segment.SegmentSet{}, err
-	}
-	_, err = stream.Write(bytes)
-	if err != nil {
-		return segment.SegmentSet{}, err
-	}
-	_, err = stream.Read(lenbuf)
-	msglen := int(binary.BigEndian.Uint32(lenbuf))
-	// TODO: handle too large or negative message lengths
-	recvbuf := make([]byte, msglen)
-	read := 0
-	for err == nil && read < msglen {
-		n, e := stream.Read(recvbuf[read:])
-		read += n
-		err = e
-	}
-	if err != nil && err != io.EOF {
-		return segment.SegmentSet{}, err
-	}
-	_, accsegs, _, _, err := segment.DecodeSegments(recvbuf, sentsegs)
+	sentsegs, err := segment.WriteSegments(stream, newsegset.Segments, oldsegs, newsegset.SrcIA, newsegset.DstIA)
+	_, accsegs, _, _, err := segment.ReadSegments(stream, sentsegs)
 	if err != nil {
 		return segment.SegmentSet{}, fmt.Errorf("failed to decode server response: %s", err.Error())
 	}

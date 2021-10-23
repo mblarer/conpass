@@ -3,6 +3,7 @@ package segment
 import (
 	"encoding/binary"
 	"errors"
+	"io"
 
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/common"
@@ -20,20 +21,41 @@ const (
 	segAcceptedTrue  uint8 = 1 << 1
 )
 
-// DecodeSegments decodes the bytes received from the other CONPASS agent into
-// segments. This function also takes into account the ``old'' set of segments,
-// which is already known to both agents.  The first set of segments contains
-// all segments that were transmitted, the second set contains only the
-// accepted segments. This function also returns the source and destination
-// ASes. If the decoding failed, an error is returned instead.
-func DecodeSegments(bytes []byte, oldsegs []Segment) ([]Segment, []Segment, addr.IA, addr.IA, error) {
-	hdrlen := int(bytes[1])
-	numsegs := int(binary.BigEndian.Uint16(bytes[2:]))
-	srcIA := addr.IAInt(binary.BigEndian.Uint64(bytes[4:])).IA()
-	dstIA := addr.IAInt(binary.BigEndian.Uint64(bytes[12:])).IA()
+// ReadSegments reads from the given bytestream and decodes the bytes received from
+// the other CONPASS agent into segments. This function also takes into account
+// the ``old'' set of segments, which is already known to both agents.  The
+// first set of segments contains all segments that were transmitted, the
+// second set contains only the accepted segments. This function also returns
+// the source and destination ASes. If the decoding failed, an error is
+// returned instead.
+func ReadSegments(stream io.Reader, oldsegs []Segment) ([]Segment, []Segment, addr.IA, addr.IA, error) {
+	header := make([]byte, 24)
+	n, err := stream.Read(header)
+	if n < 24 || (err != nil && err != io.EOF) {
+		return nil, nil, addr.IA{}, addr.IA{}, err
+	}
+	hdrlen := int(header[1])
+	numsegs := int(binary.BigEndian.Uint16(header[2:]))
+	msglen := int(binary.BigEndian.Uint32(header[4:]))
+	// TODO: handle too large or negative message lengths
+	srcIA := addr.IAInt(binary.BigEndian.Uint64(header[8:])).IA()
+	dstIA := addr.IAInt(binary.BigEndian.Uint64(header[16:])).IA()
+
+	msglen -= 24 // the size of the header was included in msglen
+	bytes := make([]byte, msglen)
+	read := 0
+	for err == nil && read < msglen {
+		n, e := stream.Read(bytes[read:])
+		read += n
+		err = e
+	}
+	if err != nil && err != io.EOF {
+		return nil, nil, srcIA, dstIA, err
+	}
+	bytes = bytes[hdrlen-24:] // skip per-message options (included in hdrlen)
+
 	newsegs := make([]Segment, numsegs)
 	accsegs := make([]Segment, 0)
-	bytes = bytes[hdrlen:]
 	for i := 0; i < numsegs; i++ {
 		flags := bytes[0]
 		segtype := flags & segTypeMask
@@ -82,16 +104,29 @@ func decodeInterfaces(bytes []byte, seglen int) []snet.PathInterface {
 	return interfaces
 }
 
-// EncodeSegments encodes the segments to sent to the other CONPASS segments in
+// WriteSegments encodes the segments to send to the other CONPASS segments in
+// bytes and writes them to the given bytestream. This function also takes into
+// account the ``old'' set of segments, which is already known to both agents.
+// The function returns the encoded segments in the order of transmission.
+func WriteSegments(stream io.Writer, newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]Segment, error) {
+	bytes, sentsegs := EncodeSegments(newsegs, oldsegs, srcIA, dstIA)
+	_, err := stream.Write(bytes)
+	if err != nil {
+		return nil, err
+	}
+	return sentsegs, nil
+}
+
+// EncodeSegments encodes the segments to send to the other CONPASS segments in
 // bytes. This function also takes into account the ``old'' set of segments,
-// which is already known to both agents. The function returns the byte
-// sequence as well the encoded segments in the order of transmission.
+// which is already known to both agents.  The function returns the byte
+// sequence and the encoded segments in the order of transmission.
 func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, []Segment) {
-	hdrlen := 20
+	hdrlen := 24
 	allbytes := make([]byte, hdrlen)
 	allbytes[1] = uint8(hdrlen)
-	binary.BigEndian.PutUint64(allbytes[4:], uint64(srcIA.IAInt()))
-	binary.BigEndian.PutUint64(allbytes[12:], uint64(dstIA.IAInt()))
+	binary.BigEndian.PutUint64(allbytes[8:], uint64(srcIA.IAInt()))
+	binary.BigEndian.PutUint64(allbytes[16:], uint64(dstIA.IAInt()))
 
 	segidx := make(map[string]int)
 	for idx, seg := range oldsegs {
@@ -131,6 +166,7 @@ func EncodeSegments(newsegs, oldsegs []Segment, srcIA, dstIA addr.IA) ([]byte, [
 
 	numsegs := uint16(currentIdx - len(oldsegs))
 	binary.BigEndian.PutUint16(allbytes[2:], numsegs)
+	binary.BigEndian.PutUint32(allbytes[4:], uint32(len(allbytes)))
 	return allbytes, sentsegs
 }
 
