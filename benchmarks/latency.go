@@ -63,11 +63,11 @@ func main() {
 				sfilter = filter.SrcDstPathEnumerator()
 			}
 
-			client := ipn.Initiator{
+			client := conpass.Initiator{
 				InitialSegset: segset,
 				Filter:        cfilter,
 			}
-			server := ipn.Responder{
+			server := conpass.Responder{
 				Filter: sfilter,
 			}
 

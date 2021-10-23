@@ -140,7 +140,7 @@ func runNegotiationServer() {
 		log.Printf("server listening at %s", address)
 	}
 	filter := buildFilter()
-	agent := ipn.Responder{Filter: filter, Verbose: verbose}
+	agent := conpass.Responder{Filter: filter, Verbose: verbose}
 	for {
 		stream := listener.accept()
 		go agent.NegotiateOver(stream)

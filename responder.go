@@ -1,4 +1,4 @@
-package ipn
+package conpass
 
 import (
 	"encoding/binary"

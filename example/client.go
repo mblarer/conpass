@@ -146,7 +146,7 @@ func negotiate(paths []snet.Path, srcIA, dstIA addr.IA) []snet.Path {
 		log.Println("split paths into", len(segset.Segments), "different segments")
 	}
 	filter := buildFilter()
-	agent := ipn.Initiator{InitialSegset: segset, Filter: filter, Verbose: verbose}
+	agent := conpass.Initiator{InitialSegset: segset, Filter: filter, Verbose: verbose}
 
 	address := fmt.Sprintf("%s:%s", host, negotiationPort)
 	stream := dial(address)

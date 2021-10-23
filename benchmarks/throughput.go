@@ -16,7 +16,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strconv"
-	"testing"
+	"time"
 
 	"github.com/lucas-clemente/quic-go"
 	"github.com/mblarer/scion-ipn"
@@ -66,18 +66,19 @@ func main() {
 		sfilter = filter.SrcDstPathEnumerator()
 	}
 
-	server := ipn.Responder{Filter: sfilter}
+	server := conpass.Responder{Filter: sfilter}
 	go runServer(server, p)
 
 	address := fmt.Sprintf("%s:%s", host, port)
-	streams := make(chan io.ReadWriteCloser, p)
+	channel := make(chan string)
 	// Create p worker threads
 	for i := 0; i < p; i++ {
 		go func() {
-			client := ipn.Initiator{InitialSegset: segset, Filter: cfilter}
+			client := conpass.Initiator{InitialSegset: segset, Filter: cfilter}
 			bytes := prepareBytes(client)
 			for {
-				stream := <-streams
+				address := <-channel
+				stream := dial(address)
 				stream.Write(bytes)
 				lenbuf := make([]byte, 4)
 				stream.Read(lenbuf)
@@ -87,11 +88,12 @@ func main() {
 			}
 		}()
 	}
-	result := testing.Benchmark(func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			streams <- dial(address)
-		}
-	})
+
+	N := 2000
+	start := time.Now()
+	for i := 0; i < N; i++ {
+		channel <- address
+	}
 
 	if prof {
 		f, _ := os.Create("mem.prof")
@@ -100,10 +102,10 @@ func main() {
 		pprof.WriteHeapProfile(f)
 	}
 
-	fmt.Print(result.N, int64(result.T))
+	fmt.Print(int64(N) * 1_000_000_000 / int64(time.Since(start)))
 }
 
-func prepareBytes(agent ipn.Initiator) []byte {
+func prepareBytes(agent conpass.Initiator) []byte {
 	newsegset := agent.Filter.Filter(agent.InitialSegset)
 	oldsegs := []segment.Segment{}
 	bytes, _ := segment.EncodeSegments(newsegset.Segments, oldsegs, newsegset.SrcIA, newsegset.DstIA)
@@ -145,15 +147,17 @@ func usageAndExit() {
 	os.Exit(1)
 }
 
-func runServer(agent ipn.Responder, p int) {
+func runServer(agent conpass.Responder, p int) {
 	address := fmt.Sprintf("%s:%s", host, port)
 	listener := listen(address)
-	streams := make(chan io.ReadWriter, p)
+	streams := make(chan io.ReadWriteCloser, p)
 	// Create p worker threads
 	for i := 0; i < p; i++ {
-		go func(responder ipn.Responder) {
+		go func(responder conpass.Responder) {
 			for {
-				responder.NegotiateOver(<-streams)
+				stream := <-streams
+				responder.NegotiateOver(stream)
+				stream.Close()
 			}
 		}(agent)
 	}
