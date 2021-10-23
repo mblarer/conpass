@@ -227,6 +227,24 @@ func TestNegotiationTooLongPath(t *testing.T) {
 	test(segset, cfilter, sfilter, want, t)
 }
 
+func TestNegotiationCyclicPath(t *testing.T) {
+	segments := []segment.Segment{
+		segment.FromString("19-ffaa:0:1303 1>2 19-ffaa:0:1303"),
+		segment.FromString("19-ffaa:0:1303 3>4 19-ffaa:0:1303"),
+		segment.FromString("19-ffaa:0:1303 5>1 17-ffaa:0:1107"),
+		segment.FromString("19-ffaa:0:1303 6>1 19-ffaa:0:1304"),
+		segment.FromString("19-ffaa:0:1304 2>7 19-ffaa:0:1303"),
+	}
+	srcIA, _ := addr.IAFromString("19-ffaa:0:1303")
+	dstIA, _ := addr.IAFromString("17-ffaa:0:1107")
+	segset := segment.SegmentSet{Segments: segments, SrcIA: srcIA, DstIA: dstIA}
+	cfilter, sfilter := filter.SrcDstPathEnumerator(), filter.FromFilters()
+	want := []segment.Segment{
+		segment.FromString("19-ffaa:0:1303 5>1 17-ffaa:0:1107"),
+	}
+	test(segset, cfilter, sfilter, want, t)
+}
+
 func test(ss segment.SegmentSet, cf, sf segment.Filter, want []segment.Segment, t *testing.T) {
 	r1, w1 := io.Pipe()
 	r2, w2 := io.Pipe()
