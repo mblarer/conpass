@@ -37,9 +37,11 @@ func ReadSegments(stream io.Reader, oldsegs []Segment) ([]Segment, []Segment, ad
 	hdrlen := int(header[1])
 	numsegs := int(binary.BigEndian.Uint16(header[2:]))
 	msglen := int(binary.BigEndian.Uint32(header[4:]))
-	// TODO: handle too large or negative message lengths
 	srcIA := addr.IAInt(binary.BigEndian.Uint64(header[8:])).IA()
 	dstIA := addr.IAInt(binary.BigEndian.Uint64(header[16:])).IA()
+	if msglen < 24 || msglen > (1<<22) { // 4 MiB is the limit
+		return nil, nil, srcIA, dstIA, errors.New("bad message size")
+	}
 
 	msglen -= 24 // the size of the header was included in msglen
 	bytes := make([]byte, msglen)
