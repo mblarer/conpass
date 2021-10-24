@@ -17,9 +17,9 @@ import (
 	"os"
 
 	"github.com/lucas-clemente/quic-go"
-	"github.com/mblarer/scion-ipn"
-	"github.com/mblarer/scion-ipn/filter"
-	"github.com/mblarer/scion-ipn/segment"
+	"github.com/mblarer/conpass"
+	"github.com/mblarer/conpass/filter"
+	"github.com/mblarer/conpass/segment"
 	"github.com/scionproto/scion/go/lib/pathpol"
 )
 
@@ -221,6 +221,6 @@ func generateTLSConfig() *tls.Config {
 	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
-		NextProtos:   []string{"scion-ipn-example"},
+		NextProtos:   []string{"conpass-example"},
 	}
 }

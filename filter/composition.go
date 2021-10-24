@@ -1,6 +1,6 @@
 package filter
 
-import "github.com/mblarer/scion-ipn/segment"
+import "github.com/mblarer/conpass/segment"
 
 // FromFilters returns a segment.Filter that applies a sequence of
 // caller-supplied filters, in the given order.

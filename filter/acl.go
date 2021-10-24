@@ -1,8 +1,8 @@
 package filter
 
 import (
-	"github.com/mblarer/scion-ipn/path"
-	"github.com/mblarer/scion-ipn/segment"
+	"github.com/mblarer/conpass/path"
+	"github.com/mblarer/conpass/segment"
 	"github.com/scionproto/scion/go/lib/pathpol"
 	"github.com/scionproto/scion/go/lib/snet"
 )

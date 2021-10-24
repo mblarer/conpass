@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
-	"github.com/mblarer/scion-ipn"
-	"github.com/mblarer/scion-ipn/filter"
-	"github.com/mblarer/scion-ipn/segment"
+	"github.com/mblarer/conpass"
+	"github.com/mblarer/conpass/filter"
+	"github.com/mblarer/conpass/segment"
 	"github.com/netsec-ethz/scion-apps/pkg/appnet"
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/pathpol"
@@ -194,7 +194,7 @@ func buildFilter() segment.Filter {
 func dial(address string) io.ReadWriteCloser {
 	tlsConfig := &tls.Config{
 		InsecureSkipVerify: true,
-		NextProtos:         []string{"scion-ipn-example"},
+		NextProtos:         []string{"conpass-example"},
 	}
 	switch transport {
 	case quicTransport:

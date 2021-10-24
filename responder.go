@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/mblarer/scion-ipn/segment"
+	"github.com/mblarer/conpass/segment"
 )
 
 // Responder represents a CONPASS agent in the responder role.

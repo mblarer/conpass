@@ -1,7 +1,7 @@
 package segment
 
 import (
-	"github.com/mblarer/scion-ipn/path"
+	"github.com/mblarer/conpass/path"
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 )

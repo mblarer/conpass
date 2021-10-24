@@ -1,6 +1,6 @@
 package filter
 
-import "github.com/mblarer/scion-ipn/segment"
+import "github.com/mblarer/conpass/segment"
 
 // SrcDstPathEnumerator returns a segment.Filter that enumerates all paths
 // between the given source ISD-AS and the destination ISD-AS that can be

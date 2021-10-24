@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"github.com/mblarer/scion-ipn/segment"
+	"github.com/mblarer/conpass/segment"
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/common"
 	"github.com/scionproto/scion/go/lib/snet"

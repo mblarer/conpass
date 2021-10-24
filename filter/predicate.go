@@ -1,6 +1,6 @@
 package filter
 
-import "github.com/mblarer/scion-ipn/segment"
+import "github.com/mblarer/conpass/segment"
 
 // FromPredicate returns a segment.Filter that keeps path segments if and only
 // if they satisfy a given predicate.

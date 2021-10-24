@@ -1,4 +1,4 @@
-module github.com/mblarer/scion-ipn
+module github.com/mblarer/conpass
 
 go 1.16
 
