@@ -80,10 +80,10 @@ func main() {
 				address := <-channel
 				stream := dial(address)
 				stream.Write(bytes)
-				lenbuf := make([]byte, 4)
-				stream.Read(lenbuf)
-				msglen := int64(binary.BigEndian.Uint32(lenbuf))
-				io.Copy(io.Discard, io.LimitReader(stream, msglen))
+				header := make([]byte, 24)
+				stream.Read(header)
+				msglen := int64(binary.BigEndian.Uint32(header[4:]))
+				io.Copy(io.Discard, io.LimitReader(stream, msglen-24))
 				stream.Close()
 			}
 		}()
@@ -109,9 +109,7 @@ func prepareBytes(agent conpass.Initiator) []byte {
 	newsegset := agent.Filter.Filter(agent.InitialSegset)
 	oldsegs := []segment.Segment{}
 	bytes, _ := segment.EncodeSegments(newsegset.Segments, oldsegs, newsegset.SrcIA, newsegset.DstIA)
-	lenbuf := make([]byte, 4)
-	binary.BigEndian.PutUint32(lenbuf, uint32(len(bytes)))
-	return append(lenbuf, bytes...)
+	return bytes
 
 }
 
